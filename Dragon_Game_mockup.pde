@@ -1,5 +1,5 @@
-/****************************************
- * Penrose Glom by Daniel Demski.
+/**************************************** //<>// //<>// //<>// //<>// //<>//
+ * Dragon Game Mockup by Daniel Demski.
  * 
  * The actual point of this is to make sure that I understand the
  * Cut and Project method for making non-periodic tilings,
@@ -9,9 +9,9 @@
  * 
  * 
  *****************************************/
- import queasycam.*;
- 
-float radius = 5;//15;
+//import queasycam.*;
+
+float radius = 6;
 float debugscale = 0.84;
 float driftspeed = 0.1;
 
@@ -62,7 +62,8 @@ public dimProjector fivedee;
 float addx;
 float addy;
 
-QueasyCam camera;
+QueasyCam cam;
+PMatrix3D originalMatrix;
 
 void setup() {
   size(displayWidth, displayHeight, P3D);
@@ -72,47 +73,62 @@ void setup() {
   addy = (1-debugscale) * displayHeight / 3.0;
   //camera(width/2.0,height/2.0,(height/2.0) / tan(PI*30.0 / 180.0), width/2.0, height/2.0, 0, 0, 1, 0);
   //frustum(10, -10, -10*float(displayHeight)/displayWidth, 10*float(displayHeight)/displayWidth, 10, 1000000);
-  camera = new QueasyCam(this);
-  camera.speed = 5;
-  camera.sensitivity = 2;
+  originalMatrix = ((PGraphicsOpenGL)this.g).camera;
+  cam = new QueasyCam(this);
+  cam.speed = 0.5;
+  cam.sensitivity = 0.5;
 }
+
+/*public void beginHUD()
+ {
+ cam. pushMatrix();
+ hint(DISABLE_DEPTH_TEST);
+ resetMatrix();
+ applyMatrix(originalMatrix);
+ }
+ 
+ public void endHUD()
+ {
+ hint(ENABLE_DEPTH_TEST);
+ popMatrix();
+ }*/
 
 void draw() {
   /*if (keyPressed) {
-    //if (key == 'a') CameraX += 40;
-    if (key == 'a') {
-      //Move camera in y direction
-      CameraX += 10*(cos(CameraRZ));
-      CameraZ += 10*(sin(CameraRZ));
-    }
-    //if (key == 'e') CameraX -= 40;
-    if (key == 'e') {
-      //Move camera in y direction
-      CameraX -= 10*(cos(CameraRZ));
-      CameraZ -= 10*(sin(CameraRZ));
-    }
-    if (key == ',') {
-      // Move camera in x direction
-      CameraX += -10*cos(CameraRY)*cos(CameraRZ);
-      CameraY += 10*sin(CameraRZ)*cos(CameraRY);
-      CameraZ += 10*sin(CameraRY);
-      //CameraZ += 500;
-      //println(cos(CameraRX)+" "+cos(CameraRY)+" "+cos(CameraRZ));
-    }
-    if (key == 'o') {
-      //Move camera in x direction
-      CameraX -= -10*cos(CameraRY)*cos(CameraRZ);
-      CameraY -= 10*sin(CameraRZ)*cos(CameraRY);
-      CameraZ -= 10*sin(CameraRY);
-      //CameraZ -= 500;
-    }
-  }*/
+   //if (key == 'a') CameraX += 40;
+   if (key == 'a') {
+   //Move camera in y direction
+   CameraX += 10*(cos(CameraRZ));
+   CameraZ += 10*(sin(CameraRZ));
+   }
+   //if (key == 'e') CameraX -= 40;
+   if (key == 'e') {
+   //Move camera in y direction
+   CameraX -= 10*(cos(CameraRZ));
+   CameraZ -= 10*(sin(CameraRZ));
+   }
+   if (key == ',') {
+   // Move camera in x direction
+   CameraX += -10*cos(CameraRY)*cos(CameraRZ);
+   CameraY += 10*sin(CameraRZ)*cos(CameraRY);
+   CameraZ += 10*sin(CameraRY);
+   //CameraZ += 500;
+   //println(cos(CameraRX)+" "+cos(CameraRY)+" "+cos(CameraRZ));
+   }
+   if (key == 'o') {
+   //Move camera in x direction
+   CameraX -= -10*cos(CameraRY)*cos(CameraRZ);
+   CameraY -= 10*sin(CameraRZ)*cos(CameraRY);
+   CameraZ -= 10*sin(CameraRY);
+   //CameraZ -= 500;
+   }
+   }*/
   //CameraRZ = map(mouseX,0,width,-PI,PI);
   //CameraRY = map(mouseY,0,height,-PI,PI);
   //camera(CameraX,CameraY,CameraZ,
   //        CameraX-50*cos(CameraRY)*cos(CameraRZ),CameraY+50*sin(CameraRZ)*cos(CameraRY),CameraZ+50*sin(CameraRY),
   //        0,0,1);
-  
+
   lights();
   //translate(-width/2, -height/2);
   //println(twodee);
@@ -126,6 +142,33 @@ void draw() {
     render();
   }
   if (run) run = !run;
+}
+
+void drawCrosshair() {
+  /*cam.beginHUD();
+   stroke(0);
+   line(displayWidth/2.0,displayHeight/2.0 + 100,displayWidth/2.0,displayHeight/2.0 - 100);
+   line(displayWidth/2.0+10,displayHeight/2.0,displayWidth/2.0+10,displayHeight/2.0);
+   cam.endHUD();*/
+  hint(DISABLE_DEPTH_TEST);
+  int ccolor = rotateColor(cam.applet.get(width/2, height/2));
+  stroke(ccolor);
+  PVector hudorigin = cam.position.copy().add(cam.getForward());
+  PVector rightside = hudorigin.copy().add(cam.getRight().copy().mult(0.01));
+  PVector leftside = hudorigin.copy().add(cam.getRight().copy().mult(-0.01));
+  line(rightside.x, rightside.y, rightside.z, leftside.x, leftside.y, leftside.z);
+  PVector up = cam.getForward().copy().cross(cam.getRight());
+  PVector topside = hudorigin.copy().add(up.copy().mult(0.01));
+  PVector bottomside = hudorigin.copy().add(up.copy().mult(-0.01));
+  line(topside.x, topside.y, topside.z, bottomside.x, bottomside.y, bottomside.z);
+  hint(ENABLE_DEPTH_TEST);
+}
+
+int rotateColor(int c) {
+  float r = (red(c) + 128)%256;
+  float g = (green(c) + 128)%256;
+  float b = (blue(c) + 128)%256;
+  return color(r, g, b);
 }
 
 void setupRender() {
@@ -170,10 +213,23 @@ void setupRender() {
    addValue();
    int selection = floor(random(rhombs.size()));
    rhombs.get(selection).value = 1;*/
+  for (Block block : blocks) {
+    for (Rhomb face : block.sides) {
+      // TODO shouldn't have to re-normalize each time; make fivedee0 etc. global.
+      /* TODO I'm repeating calculations here; the block only has a few vertices, but each
+       vertex has several rhombuses. Ideally what I would do is have a Vertex object which 
+       stores the 3D calculation, so that it need only be computed once for all adjacent
+       vertices. */
+      face.corner1_3D = new PVector(face.corner1.minus(fivedeew).dot(fivedeex.normalized()), face.corner1.minus(fivedeew).dot(fivedeey.normalized()), face.corner1.minus(fivedeew).dot(fivedeez.normalized()));
+      face.corner2_3D = new PVector(face.corner2.minus(fivedeew).dot(fivedeex.normalized()), face.corner2.minus(fivedeew).dot(fivedeey.normalized()), face.corner2.minus(fivedeew).dot(fivedeez.normalized()));
+      face.corner3_3D = new PVector(face.corner3.minus(fivedeew).dot(fivedeex.normalized()), face.corner3.minus(fivedeew).dot(fivedeey.normalized()), face.corner3.minus(fivedeew).dot(fivedeez.normalized()));
+      face.corner4_3D = new PVector(face.corner4.minus(fivedeew).dot(fivedeex.normalized()), face.corner4.minus(fivedeew).dot(fivedeey.normalized()), face.corner4.minus(fivedeew).dot(fivedeez.normalized()));
+    }
+  }
   int selection;
-  for (int loopvar = 0; loopvar < 100; loopvar++) {
+  for (int loopvar = 0; loopvar < 1000; loopvar++) {
     selection = floor(random(blocks.size()));
-    blocks.get(selection).value = 1;
+    blocks.get(selection).value = floor(random(0, 10));
   }
 
   playSetup = true;
@@ -194,23 +250,84 @@ void render() {
   }
   background(0, 100, 0);
   for (Block block : blocks) {
-    if (block.value > -1) {
+    if (block.value > 0) {
       for (Rhomb face : block.sides) {
-        // TODO shouldn't have to re-normalize each time; make fivedee0 etc. global.
-        // TODO actually shouldn't have to re-calculate any of this each time....
-        PVector corner1_3D = new PVector(face.corner1.minus(fivedeew).dot(fivedeex.normalized()), face.corner1.minus(fivedeew).dot(fivedeey.normalized()), face.corner1.minus(fivedeew).dot(fivedeez.normalized()));
-        PVector corner2_3D = new PVector(face.corner2.minus(fivedeew).dot(fivedeex.normalized()), face.corner2.minus(fivedeew).dot(fivedeey.normalized()), face.corner2.minus(fivedeew).dot(fivedeez.normalized()));
-        PVector corner3_3D = new PVector(face.corner3.minus(fivedeew).dot(fivedeex.normalized()), face.corner3.minus(fivedeew).dot(fivedeey.normalized()), face.corner3.minus(fivedeew).dot(fivedeez.normalized()));
-        PVector corner4_3D = new PVector(face.corner4.minus(fivedeew).dot(fivedeex.normalized()), face.corner4.minus(fivedeew).dot(fivedeey.normalized()), face.corner4.minus(fivedeew).dot(fivedeez.normalized()));
+        if (cameraPoint(face)) {
+          stroke(255, 255, 0);
+          fill(255-(255-block.value*25)*0.8, 255-(255-block.value*10)*0.8, 255-block.value*25*0.8);
+        } else {
+          stroke(100);
+          fill(block.value*25, block.value*10, 255-block.value*25);
+        }
         beginShape();
-        vertex(corner1_3D.x*10, corner1_3D.y*10, corner1_3D.z*10);
-        vertex(corner2_3D.x*10, corner2_3D.y*10, corner2_3D.z*10);
-        vertex(corner4_3D.x*10, corner4_3D.y*10, corner4_3D.z*10);
-        vertex(corner3_3D.x*10, corner3_3D.y*10, corner3_3D.z*10);
+        vertex(face.corner1_3D.x, face.corner1_3D.y, face.corner1_3D.z);
+        vertex(face.corner2_3D.x, face.corner2_3D.y, face.corner2_3D.z);
+        vertex(face.corner4_3D.x, face.corner4_3D.y, face.corner4_3D.z);
+        vertex(face.corner3_3D.x, face.corner3_3D.y, face.corner3_3D.z);
         endShape(CLOSE);
       }
     }
   }
+  drawCrosshair();
+}
+
+boolean cameraPoint(Rhomb face) {
+  // Use camera as origin
+  PVector c1 = face.corner1_3D.copy().sub(cam.position);
+  PVector c2 = face.corner2_3D.copy().sub(cam.position);
+  PVector c3 = face.corner3_3D.copy().sub(cam.position);
+  PVector c4 = face.corner4_3D.copy().sub(cam.position);
+  float c1f = cam.forward.dot(c1);
+  float c2f = cam.forward.dot(c2);
+  float c3f = cam.forward.dot(c3);
+  float c4f = cam.forward.dot(c4);
+  // Don't want to do any more multiplication unless we have to
+  if (c1f > 0 || c2f > 0 || c3f > 0 || c4f > 0) {
+    // flattening onto a plane
+    c1.sub(cam.forward.copy().mult(c1f));
+    c2.sub(cam.forward.copy().mult(c2f));
+    c3.sub(cam.forward.copy().mult(c3f));
+    //c4.sub(cam.forward.copy().mult(c4f));
+    // Now for an actual plane
+    Point2D flat1 = new Point2D(0, 0);
+    Point2D flat2 = new Point2D(0, 0);
+    Point2D flat3 = new Point2D(0, 0);
+    //Point2D flat4 = new Point2D(0, 0);
+    Point2D flatcenter = new Point2D(0, 0);// The camera's position is genuinely (0,0).
+    // We're discarding whichever dimension varies least.
+    for (int d = 0; d < 3; d++) {
+      if (max(cam.forward.array()) == cam.forward.array()[d]) {
+        int j = 0;
+        for (int i=0;; j++) {
+          if (i == d) i++;
+          if (j>=2) break;
+          flat1.point[j] = c1.array()[i];
+          flat2.point[j] = c2.array()[i];
+          flat3.point[j] = c3.array()[i];
+          //flat4.point[j] = c4.array()[i];
+          i++;
+        }
+        break;
+      }
+    }
+    Point2D edge1 = flat2.minus(flat1);
+    Point2D axis1 = edge1.orthoflip();
+    float dp1 = flat1.dot(axis1);
+    float dp2 = 0;// always works out to zero
+    float dp3 = flat3.dot(axis1);
+    if ((dp1 <= dp2 && dp2 <= dp3) || (dp1 >= dp2 && dp2 >= dp3)) {
+      // Finally we know something: screen center is between two of the edges. Check other two.
+      Point2D edge2 = flat3.minus(flat1);
+      Point2D axis2 = edge2.orthoflip();
+      dp1 = flat1.dot(axis2);
+      dp2 = 0;// always works out to zero
+      dp3 = flat2.dot(axis2);
+      if ((dp1 <= dp2 && dp2 <= dp3) || (dp1 >= dp2 && dp2 >= dp3)) {
+        return(true);
+      }
+    }
+  }
+  return(false);
 }
 
 Rhomb getNext(Rhomb r, int arrowdim, int arrowdir) {
@@ -239,7 +356,6 @@ void drift() {
   clicked = false;
   playSetup = false;
 
-  final float pixelradius = float(height)/radius;
   background(0, 100, 0);
   stroke(100, 100, 100);
   //fivedeex, fivedeey and fivedeez determine the tilt of our plane in higher-d space.
@@ -317,72 +433,100 @@ void drift() {
 
   // Having expressed our 3D basis vectors in 5D, let's express the 5D basis vectors in 3D.
 
-  PVector threedee0 = new PVector(fivedee0.point[0], fivedee1.point[0], fivedee2.point[0]);
-  PVector threedee1 = new PVector(fivedee0.point[1], fivedee1.point[1], fivedee2.point[1]);
-  PVector threedee2 = new PVector(fivedee0.point[2], fivedee1.point[2], fivedee2.point[2]);
-  PVector threedee3 = new PVector(fivedee0.point[3], fivedee1.point[3], fivedee2.point[3]);
-  PVector threedee4 = new PVector(fivedee0.point[4], fivedee1.point[4], fivedee2.point[4]);
+  /*PVector threedee0 = new PVector(fivedee0.point[0], fivedee1.point[0], fivedee2.point[0]);
+   PVector threedee1 = new PVector(fivedee0.point[1], fivedee1.point[1], fivedee2.point[1]);
+   PVector threedee2 = new PVector(fivedee0.point[2], fivedee1.point[2], fivedee2.point[2]);
+   PVector threedee3 = new PVector(fivedee0.point[3], fivedee1.point[3], fivedee2.point[3]);
+   PVector threedee4 = new PVector(fivedee0.point[4], fivedee1.point[4], fivedee2.point[4]);*/
+
+  //The corners of our space, for use later:
+
+  Point5D corner000 = fivedeew.copy();
+  Point5D corner001 = fivedeew.plus(fivedeez);
+  Point5D corner010 = fivedeew.plus(fivedeey);
+  Point5D corner100 = fivedeew.plus(fivedeex);
+  Point5D corner011 = corner001.plus(fivedeey);
+  Point5D corner101 = corner001.plus(fivedeex);
+  Point5D corner110 = corner010.plus(fivedeex);
+  Point5D corner111 = corner011.plus(fivedeex);
+
+  Point5D[][][] spacebounds = new Point5D[2][2][2];
+  spacebounds[0][0][0] = corner000;
+  spacebounds[0][0][1] = corner001;
+  spacebounds[0][1][0] = corner010;
+  spacebounds[1][0][0] = corner100;
+  spacebounds[0][1][1] = corner011;
+  spacebounds[1][0][1] = corner101;
+  spacebounds[1][1][0] = corner110;
+  spacebounds[1][1][1] = corner111;
 
   // Iterate over the dimension we hold constant
   for (int planeDim = 0; planeDim < 5; planeDim++) {
     // Iterate over the value at which we hold planeDim constant
-    for (float planeN = planestarts[planeDim]; planeN < planeends[planeDim]; planeN++) {
 
-      // We are on a plane which slices the rectangular prism which is our 3D space.
 
-      // Choosing an arbitrary origin for now. The slice could be various strange shapes so 
-      // it's not too useful to parameterize conveniently.
-      Point5D plane5Dw = new Point5D(0, 0, 0, 0, 0);
-      plane5Dw.point[planeDim] = planeN;
+    // Since all planes are just translations of one another, doing some setup before we land
+    // on a specific plane:
 
-      Point5D orthox = fivedeex.ortho(plane5Dw);
-      Point5D orthoy = fivedeey.ortho(plane5Dw);
-      Point5D orthoz = fivedeez.ortho(plane5Dw);
+    // Choosing an arbitrary origin for now. The slice could be various strange shapes so 
+    // it's not too useful to parameterize conveniently.
+    Point5D plane5Dw = new Point5D(0, 0, 0, 0, 0);
+    plane5Dw.point[planeDim] = 1;
 
-      Point5D plane5D0 = new Point5D(0, 0, 0, 0, 0);
-      Point5D plane5D1 = new Point5D(0, 0, 0, 0, 0);
+    Point5D orthox = fivedeex.ortho(plane5Dw);
+    Point5D orthoy = fivedeey.ortho(plane5Dw);
+    Point5D orthoz = fivedeez.ortho(plane5Dw);
 
-      // We want the larger axes to minimize error maybe? but also because one of them could be zero.
-      if (orthox.length() > orthoy.length()) { 
-        if (orthox.length() > orthoz.length()) {
-          plane5D0 = orthox;
-          if (orthoy.length() > orthoz.length()) {
-            plane5D1 = orthoy;
-          } else {
-            plane5D1 = orthoz;
-          }
-        } else {
-          plane5D0 = orthoz;
-          plane5D1 = orthox;
-        }
-      } else if (orthoy.length() > orthoz.length()) {
-        plane5D0 = orthoy;
-        if (orthox.length() > orthoz.length()) {
-          plane5D1 = orthox;
+    Point5D plane5D0 = new Point5D(0, 0, 0, 0, 0);
+    Point5D plane5D1 = new Point5D(0, 0, 0, 0, 0);
+
+    // We want the larger axes to minimize error maybe? but also because one of them could be zero.
+    if (orthox.length() > orthoy.length()) { 
+      if (orthox.length() > orthoz.length()) {
+        plane5D0 = orthox;
+        if (orthoy.length() > orthoz.length()) {
+          plane5D1 = orthoy;
         } else {
           plane5D1 = orthoz;
         }
       } else {
         plane5D0 = orthoz;
-        plane5D1 = orthoy;
+        plane5D1 = orthox;
       }
+    } else if (orthoy.length() > orthoz.length()) {
+      plane5D0 = orthoy;
+      if (orthox.length() > orthoz.length()) {
+        plane5D1 = orthox;
+      } else {
+        plane5D1 = orthoz;
+      }
+    } else {
+      plane5D0 = orthoz;
+      plane5D1 = orthoy;
+    }
 
-      plane5D0 = plane5D0.normalized();
-      plane5D1 = plane5D1.normalized();
+    plane5D0 = plane5D0.normalized();
+    plane5D1 = plane5D1.normalized();
 
-      // Having expressed our 2D basis vectors in 5D, let's express the 5D basis vectors in 2D as well.
+    // Having expressed our 2D basis vectors in 5D, let's express the 5D basis vectors in 2D as well.
 
-      Point2D twodee0 = new Point2D(plane5D0.point[0], plane5D1.point[0]);
-      Point2D twodee1 = new Point2D(plane5D0.point[1], plane5D1.point[1]);
-      Point2D twodee2 = new Point2D(plane5D0.point[2], plane5D1.point[2]);
-      Point2D twodee3 = new Point2D(plane5D0.point[3], plane5D1.point[3]);
-      Point2D twodee4 = new Point2D(plane5D0.point[4], plane5D1.point[4]);
+    Point2D twodee0 = new Point2D(plane5D0.point[0], plane5D1.point[0]);
+    Point2D twodee1 = new Point2D(plane5D0.point[1], plane5D1.point[1]);
+    Point2D twodee2 = new Point2D(plane5D0.point[2], plane5D1.point[2]);
+    Point2D twodee3 = new Point2D(plane5D0.point[3], plane5D1.point[3]);
+    Point2D twodee4 = new Point2D(plane5D0.point[4], plane5D1.point[4]);
 
-      twodee = new dimProjector(twodee0.point, twodee1.point, twodee2.point, twodee3.point, twodee4.point);
-      fivedee = new dimProjector(plane5D0.point, plane5D1.point);//new dimProjector(fivedeex, fivedeey);
+    twodee = new dimProjector(twodee0.point, twodee1.point, twodee2.point, twodee3.point, twodee4.point);
+    fivedee = new dimProjector(plane5D0.point, plane5D1.point);//new dimProjector(fivedeex, fivedeey);
+
+
+    for (float planeN = planestarts[planeDim]; planeN < planeends[planeDim]; planeN++) {
+
+      // We are on a plane which slices the rectangular prism which is our 3D space.
+
+      plane5Dw.point[planeDim] = planeN;
 
       // Now we need to find all Voronoi cells of the 5D lattice which intersect our plane.
-
 
       // Clear out the arrays
       cells = new ArrayList<Point5D>();
@@ -403,119 +547,20 @@ void drift() {
       // Gotta find the edges of our slice
       ArrayList<Point5D> planecorners = new ArrayList<Point5D>();
 
-      // We'll find corners one rectangular-prism-edge at a time. Starting with the 3D axes
-      if (fivedeex.point[planeDim] != 0.0) { //<>//
-        //Point5D intersection = fivedeew.plus(fivedeex.times((planeN - fivedeew.point[planeDim])/fivedeex.point[planeDim]));
-        // NOTE: These "interesection" variables exclude W so aren't in "proper 5D"
-        Point5D intersection = fivedee0.times(planeN - fivedeew.point[planeDim]).times(1.0/fivedee0.point[planeDim]);
-        if (intersection.dot(fivedeex) < 0 || intersection.length() > fivedeex.length()) {
-          // Point is outside the rect, do nothing
-        } else {
-          //Convert to proper 5D
-          planecorners.add(intersection.plus(fivedeew));
-        }
-      }
-      if (fivedeey.point[planeDim] != 0.0) {
-        //Point5D intersection = fivedeew.plus(fivedeey.times((planeN - fivedeew.point[planeDim])/fivedeey.point[planeDim]));
-        Point5D intersection = fivedee1.times(planeN - fivedeew.point[planeDim]).times(1.0/fivedee1.point[planeDim]);
-        if (intersection.dot(fivedeey) < 0 || intersection.length() > fivedeey.length()) {
-          // Point is outside the rect, do nothing
-        } else {
-          planecorners.add(intersection.plus(fivedeew));
-        }
-      }
-      if (fivedeez.point[planeDim] != 0.0) {
-        //Point5D intersection = fivedeew.plus(fivedeez.times((planeN - fivedeew.point[planeDim])/fivedeez.point[planeDim]));
-        Point5D intersection = fivedee2.times(planeN - fivedeew.point[planeDim]).times(1.0/fivedee2.point[planeDim]);
-        if (intersection.dot(fivedeez) < 0 || intersection.length() > fivedeez.length()) {
-          // Point is outside the rect, do nothing
-        } else {
-          planecorners.add(intersection.plus(fivedeew));
-        }
-      }
-      // Now the far edges
-      Point5D m = fivedeew.plus(fivedeex).plus(fivedeey).plus(fivedeez);
-      if (fivedeex.point[planeDim] != 0.0) {
-        //Point5D intersection = m.plus(fivedeex.times(-(planeN - m.point[planeDim])/fivedeex.point[planeDim]));
-        // Coordinates are measured from "m" backwards
-        Point5D intersection = fivedee0.times(m.point[planeDim] - planeN).times(1.0/fivedee0.point[planeDim]);
-        if (intersection.dot(fivedeex) < 0 || intersection.length() > fivedeex.length()) {
-          // Point is outside the rect, do nothing
-        } else {
-          planecorners.add(m.minus(intersection));
-        }
-      }
-      if (fivedeey.point[planeDim] != 0.0) {
-        //Point5D intersection = m.plus(fivedeey.times(-(planeN - m.point[planeDim])/fivedeey.point[planeDim]));
-        Point5D intersection = fivedee1.times(m.point[planeDim] - planeN).times(1.0/fivedee1.point[planeDim]);
-        if (intersection.dot(fivedeey) < 0 || intersection.length() > fivedeey.length()) {
-          // Point is outside the rect, do nothing
-        } else {
-          planecorners.add(m.minus(intersection));
-        }
-      }
-      if (fivedeez.point[planeDim] != 0.0) {
-        //Point5D intersection = m.plus(fivedeez.times(-(planeN - m.point[planeDim])/fivedeez.point[planeDim]));
-        Point5D intersection = fivedee2.times(m.point[planeDim] - planeN).times(1.0/fivedee2.point[planeDim]);
-        if (intersection.dot(fivedeez) < 0 || intersection.length() > fivedeez.length()) {
-          // Point is outside the rect, do nothing
-        } else {
-          planecorners.add(m.minus(intersection));
-        }
-      }
-      // Now the trickier edges...
-      // These first two are measured from the x axis' bigger corner
-      Point5D xcorner = fivedeex.copy();
-      if (fivedeey.point[planeDim] != 0.0) {
-        Point5D intersection = fivedee1.times(planeN - xcorner.point[planeDim]).times(1.0/fivedee1.point[planeDim]);
-        if (intersection.dot(fivedeey) < 0 || intersection.length() > fivedeey.length()) {
-          // Point is outside the rect, do nothing
-        } else {
-          planecorners.add(intersection.plus(xcorner));
-        }
-      }
-      if (fivedeez.point[planeDim] != 0.0) {
-        Point5D intersection = fivedee2.times(planeN - xcorner.point[planeDim]).times(1.0/fivedee2.point[planeDim]);
-        if (intersection.dot(fivedeez) < 0 || intersection.length() > fivedeez.length()) {
-          // Point is outside the rect, do nothing
-        } else {
-          planecorners.add(intersection.plus(xcorner));
-        }
-      }
-      // Now measuring from the other y-axis corner
-      Point5D ycorner = fivedeey.copy();
-      if (fivedeex.point[planeDim] != 0.0) {
-        Point5D intersection = fivedee0.times(planeN - ycorner.point[planeDim]).times(1.0/fivedee0.point[planeDim]);
-        if (intersection.dot(fivedeex) < 0 || intersection.length() > fivedeex.length()) {
-          // Point is outside the rect, do nothing
-        } else {
-          planecorners.add(intersection.plus(ycorner));
-        }
-      }
-      if (fivedeez.point[planeDim] != 0.0) {
-        Point5D intersection = fivedee2.times(planeN - ycorner.point[planeDim]).times(1.0/fivedee2.point[planeDim]);
-        if (intersection.dot(fivedeez) < 0 || intersection.length() > fivedeez.length()) {
-          // Point is outside the rect, do nothing
-        } else {
-          planecorners.add(intersection.plus(ycorner));
-        }
-      }
-      // Now measuring from the other z-axis corner
-      Point5D zcorner = fivedeez.copy();
-      if (fivedeex.point[planeDim] != 0.0) {
-        Point5D intersection = fivedee0.times(planeN - zcorner.point[planeDim]).times(1.0/fivedee0.point[planeDim]);
-        if (intersection.dot(fivedeex) < 0 || intersection.length() > fivedeex.length()) {
-          // Point is outside the rect, do nothing
-        } else {
-          planecorners.add(intersection.plus(zcorner));
-        }
-      }
-      if (fivedeey.point[planeDim] != 0.0) {
-        Point5D intersection = fivedee1.times(planeN - zcorner.point[planeDim]).times(1.0/fivedee1.point[planeDim]);
-        if (intersection.dot(fivedeey) < 0 || intersection.length() > fivedeey.length()) {
-          // Point is outside the rect, do nothing
-        } else {
-          planecorners.add(intersection.plus(zcorner));
+      // using the spacebounds array from above
+      for (int firstd = 0; firstd < 2; firstd++) {
+        for (int secondd = 0; secondd < 2; secondd++) {
+          for (int varied = 0; varied < 3; varied++) {
+            Point5D firstp = (new Point5D[]{spacebounds[0][firstd][secondd], spacebounds[firstd][0][secondd], spacebounds[firstd][secondd][0]})[varied];
+            Point5D secondp = (new Point5D[]{spacebounds[1][firstd][secondd], spacebounds[firstd][1][secondd], spacebounds[firstd][secondd][1]})[varied];
+            Point5D difference = secondp.minus(firstp);
+            Point5D intersection =  difference.times(planeN - firstp.point[planeDim]).times(1.0/difference.point[planeDim]);
+            if (intersection.dot(difference) < 0 || intersection.length() > difference.length()) {
+              // Point is outside the space, do nothing
+            } else {
+              planecorners.add(intersection.plus(firstp));
+            }
+          }
         }
       }
 
@@ -547,14 +592,7 @@ void drift() {
       }
       float start4 = ceil(min(cornervals)+0.5)-0.5;
 
-
-      /*float start0 = ceil(min(new float[]{fivedeew[0], fivedeew[0]+fivedeex[0], fivedeew[0]+fivedeey[0], fivedeew[0]+fivedeex[0]+fivedeey[0]})+0.5)-0.5;
-       float start1 = ceil(min(new float[]{fivedeew[1], fivedeew[1]+fivedeex[1], fivedeew[1]+fivedeey[1], fivedeew[1]+fivedeex[1]+fivedeey[1]})+0.5)-0.5;
-       float start2 = ceil(min(new float[]{fivedeew[2], fivedeew[2]+fivedeex[2], fivedeew[2]+fivedeey[2], fivedeew[2]+fivedeex[2]+fivedeey[2]})+0.5)-0.5;
-       float start3 = ceil(min(new float[]{fivedeew[3], fivedeew[3]+fivedeex[3], fivedeew[3]+fivedeey[3], fivedeew[3]+fivedeex[3]+fivedeey[3]})+0.5)-0.5;
-       float start4 = ceil(min(new float[]{fivedeew[4], fivedeew[4]+fivedeex[4], fivedeew[4]+fivedeey[4], fivedeew[4]+fivedeex[4]+fivedeey[4]})+0.5)-0.5;*/
-
-      // End values are just a cutoff //<>//
+      // End values are just a cutoff
       for (int c = 0; c < planecorners.size(); c++) {
         cornervals[c] = planecorners.get(c).point[0];
       }
@@ -576,17 +614,11 @@ void drift() {
       }
       float end4 = max(cornervals);
 
-      /*float end0 = max(new float[]{fivedeew[0], fivedeew[0]+fivedeex[0], fivedeew[0]+fivedeey[0], fivedeew[0]+fivedeex[0]+fivedeey[0]});
-       float end1 = max(new float[]{fivedeew[1], fivedeew[1]+fivedeex[1], fivedeew[1]+fivedeey[1], fivedeew[1]+fivedeex[1]+fivedeey[1]});
-       float end2 = max(new float[]{fivedeew[2], fivedeew[2]+fivedeex[2], fivedeew[2]+fivedeey[2], fivedeew[2]+fivedeex[2]+fivedeey[2]});
-       float end3 = max(new float[]{fivedeew[3], fivedeew[3]+fivedeex[3], fivedeew[3]+fivedeey[3], fivedeew[3]+fivedeex[3]+fivedeey[3]});
-       float end4 = max(new float[]{fivedeew[4], fivedeew[4]+fivedeex[4], fivedeew[4]+fivedeey[4], fivedeew[4]+fivedeex[4]+fivedeey[4]});*/
-
       float[] dimstarts = {start0, start1, start2, start3, start4};
       float[] dimends   = {end0, end1, end2, end3, end4  };
 
       println("Plane slices: "+(planeDim*20+(planeN-planestarts[planeDim])*20/(planeends[planeDim]-planestarts[planeDim]))+"%");
-
+      //background((planeDim*20+(planeN-planestarts[planeDim])*20/(planeends[planeDim]-planestarts[planeDim]))*255);
 
       for (int N = 0; N < 5; N++) {
         //TODO: I think there's stuff I do every time through the loop which I could do outside the loop. Goes for other loops too
@@ -600,8 +632,8 @@ void drift() {
 
           float[] enter = new float[5];
           float[] exit = new float[5];
-          float[] enter2D = new float[2];
-          float[] exit2D = new float[2];
+          //float[] enter2D = new float[2];
+          //float[] exit2D = new float[2];
 
 
           // We have corners to work with, not edges; strategy will be to generate the line segments between 
@@ -623,7 +655,7 @@ void drift() {
           // For consistency of direction, we want a convention for which side is "enter" and which "exit". Using vector [1,1,1,1,1] for direction.
           Point5D metric = new Point5D(1, 1, 1, 1, 1);
 
-          Point5D enterp = intersections.get(0); //<>//
+          Point5D enterp = intersections.get(0);
           Point5D exitp = intersections.get(0);
           for (int i = 0; i < intersections.size(); i++) {
             if (intersections.get(i).dot(metric) < enterp.dot(metric)) enterp = intersections.get(i);
@@ -635,77 +667,12 @@ void drift() {
           // distant from one another. Can I do without the "metric" thing entirely?
         assert enterp != exitp : 
           "Unable to determine entry/exit. Bad metric?";
-          
+
 
           enter = enterp.copy().point;
           exit = exitp.copy().point;
-          enter2D = twodee.project(enterp.minus(plane5Dw)).point;
-          exit2D = twodee.project(exitp.minus(plane5Dw)).point;
-
-          /*Boolean entered = false;
-           float dist;
-           
-           
-           if ((fivedeew[N] <= dimN && dimN <= fivedeew[N]+fivedeex[N]) || (fivedeex[N]+fivedeew[N] <= dimN && dimN <= fivedeew[N])) {
-           // If dimN is between the starting and ending values of the "x axis" (screen top), 
-           // then our line intersects there.
-           dist = (dimN-fivedeew[N])/fivedeex[N];
-           enter = new float[]{fivedeew[0]+fivedeex[0]*dist, fivedeew[1]+fivedeex[1]*dist, fivedeew[2]+fivedeex[2]*dist, fivedeew[3]+fivedeex[3]*dist, fivedeew[4]+fivedeex[4]*dist};//Note, the Nth entry here had better equal dimN.
-           enter2D = new float[]{dist*float(width), 0};
-           entered = true;
-           }
-           if ((fivedeew[N] <= dimN && dimN <= fivedeey[N]+fivedeew[N]) || (fivedeey[N]+fivedeew[N] <= dimN && dimN <= fivedeew[N])) {
-           dist = (dimN-fivedeew[N])/fivedeey[N];
-           if (!entered) {
-           enter = new float[]{fivedeew[0]+fivedeey[0]*dist, fivedeew[1]+fivedeey[1]*dist, fivedeew[2]+fivedeey[2]*dist, fivedeew[3]+fivedeey[3]*dist, fivedeew[4]+fivedeey[4]*dist};
-           enter2D = new float[]{0, dist*float(height)};
-           entered = true;
-           } else {
-           // Then this is the exit point
-           exit = new float[]{fivedeew[0]+fivedeey[0]*dist, fivedeew[1]+fivedeey[1]*dist, fivedeew[2]+fivedeey[2]*dist, fivedeew[3]+fivedeey[3]*dist, fivedeew[4]+fivedeey[4]*dist};
-           exit2D = new float[]{0, dist*float(height)};
-           }
-           }
-           if ((fivedeex[N]+fivedeew[N] <= dimN && dimN <= fivedeex[N] + fivedeey[N]+fivedeew[N]) || (fivedeex[N] + fivedeey[N] + fivedeew[N] <= dimN && dimN <= fivedeex[N] + fivedeew[N])) {
-           dist = (dimN - fivedeex[N] - fivedeew[N])/fivedeey[N];
-           if (!entered) {
-           enter = new float[]{fivedeew[0]+fivedeex[0]+fivedeey[0]*dist, fivedeew[1]+fivedeex[1] + fivedeey[1]*dist, fivedeew[2]+fivedeex[2] + fivedeey[2]*dist, fivedeew[3]+fivedeex[3] + fivedeey[3]*dist, fivedeew[4]+fivedeex[4] + fivedeey[4]*dist};
-           enter2D = new float[]{float(width), dist*float(height)};
-           entered = true;
-           } else {
-           // Then this is the exit point
-           exit = new float[]{fivedeew[0]+fivedeex[0] + fivedeey[0]*dist, fivedeew[1]+fivedeex[1] + fivedeey[1]*dist, fivedeew[2]+fivedeex[2] + fivedeey[2]*dist, fivedeew[3]+fivedeex[3] + fivedeey[3]*dist, fivedeew[4]+fivedeex[4] + fivedeey[4]*dist};
-           exit2D = new float[]{float(width), dist*float(height)};
-           }
-           }
-           if ((fivedeey[N]+fivedeew[N] <= dimN && dimN <= fivedeex[N] + fivedeey[N] + fivedeew[N]) || (fivedeex[N] + fivedeey[N] + fivedeew[N] <= dimN && dimN <= fivedeey[N] + fivedeew[N])) {
-           dist = (dimN - fivedeey[N] - fivedeew[N])/fivedeex[N];
-           // This could only be the exit point (we checked three sides already)
-           exit = new float[]{fivedeew[0]+fivedeey[0] + fivedeex[0]*dist, fivedeew[1]+fivedeey[1] + fivedeex[1]*dist, fivedeew[2]+fivedeey[2] + fivedeex[2]*dist, fivedeew[3]+fivedeey[3] + fivedeex[3]*dist, fivedeew[4]+fivedeey[4] + fivedeex[4]*dist};
-           exit2D = new float[]{dist*float(width), float(height)};
-           }*/
-
-          // Testing that enter and enter2D agree
-          //TODO These seem to diverge occasionally, e.g. by five or occasionally 30. Why? Perhaps there's a typo in one of the cases above.
-          //Point5D enterAgain = fivedee.project(new Point2D(enter2D));
-          //Point2D enter2DAgain = twodee.project(new Point5D(enter));
-          //println(str(enter2D[0]-enter2DAgain.point[0]+enter2D[1]-enter2DAgain.point[1])+" "
-          //  +str(enter[0]+enter[1]+enter[2]+enter[3]+enter[4]-enterAgain.point[0]-enterAgain.point[1]-enterAgain.point[2]-enterAgain.point[3]-enterAgain.point[4]));
-
-
-          /*
-          Point5D enterp = new Point5D(enter);
-           Point5D exitp = new Point5D(exit);
-           Point5D metric = new Point5D(1, 1, 1, 1, 1);
-           
-           if (enterp.dot(metric) > exitp.dot(metric)) {
-           float[] temp = new float[]{enter[0], enter[1], enter[2], enter[3], enter[4]};
-           float[] temp2D = new float[]{enter2D[0], enter2D[1]};
-           enter = exit;
-           enter2D = exit2D;
-           exit = temp;
-           exit2D = temp2D;
-           }*/
+          //enter2D = twodee.project(enterp.minus(plane5Dw)).point;
+          //exit2D = twodee.project(exitp.minus(plane5Dw)).point;
 
           // Next we need to find all crossing-points between 'enter' and 'exit'. These are just half-integer values of any of the four non-fixed dimensions; 
           // but for each one we need to note how far along our line it occurs. Each crossing point tells us a particular cell does intersect our plane, and 
@@ -785,6 +752,8 @@ void drift() {
 
             // Then step through each one, iterating the associated dimension in the correct direction to get the right latticepoint.
 
+            
+            // We step through with four cells; below vs. above the current plane, and to either side of the current line.
             Point5D left_downCell = new Point5D(round(enter[0]), round(enter[1]), round(enter[2]), round(enter[3]), round(enter[4]));
             // We have to add or subtract a bit to ensure we fall the desired direction for each starting cell. 
             left_downCell.point[N] = round(enter[N]+0.01);
@@ -802,9 +771,9 @@ void drift() {
             right_upCell.point[N] = round(enter[N]-0.01);
             right_upCell.point[planeDim] = round(enter[planeDim]+0.01);
 
-            
 
-            cells.add(left_downCell); //<>//
+
+            cells.add(left_downCell);
             cells.add(right_downCell);
             cells.add(left_upCell);
             cells.add(right_upCell);
@@ -924,12 +893,12 @@ void drift() {
                 blocks.add(block);
                 // This ordering of the axes - (N, planeDim, dim) - will be used when interpreting prev and next.
                 block.axes = new ArrayList<Integer>(java.util.Arrays.asList(new Integer[]{N, planeDim, dim}));
-                block.sides.add(new Rhomb(oldLeftDownCell.copy(),  oldRightDownCell.copy(), oldLeftUpCell.copy(),  oldRightUpCell.copy()));// old face
-                block.sides.add(new Rhomb(oldLeftDownCell.copy(),  left_downCell.copy(),    oldLeftUpCell.copy(),  left_upCell.copy()));// left face
-                block.sides.add(new Rhomb(right_downCell.copy(),   left_downCell.copy(),    right_upCell.copy(),   left_upCell.copy()));// new face
-                block.sides.add(new Rhomb(right_downCell.copy(),   oldRightDownCell.copy(), right_upCell.copy(),   oldRightUpCell.copy()));// right face
-                block.sides.add(new Rhomb(oldLeftUpCell.copy(),    oldRightUpCell.copy(),   left_upCell.copy(),    right_upCell.copy()));// up face
-                block.sides.add(new Rhomb(oldLeftDownCell.copy(),  oldRightDownCell.copy(), left_downCell.copy(),  right_downCell.copy()));// down face
+                block.sides.add(new Rhomb(oldLeftDownCell.copy(), oldRightDownCell.copy(), oldLeftUpCell.copy(), oldRightUpCell.copy()));// old face
+                block.sides.add(new Rhomb(oldLeftDownCell.copy(), left_downCell.copy(), oldLeftUpCell.copy(), left_upCell.copy()));// left face
+                block.sides.add(new Rhomb(right_downCell.copy(), left_downCell.copy(), right_upCell.copy(), left_upCell.copy()));// new face
+                block.sides.add(new Rhomb(right_downCell.copy(), oldRightDownCell.copy(), right_upCell.copy(), oldRightUpCell.copy()));// right face
+                block.sides.add(new Rhomb(oldLeftUpCell.copy(), oldRightUpCell.copy(), left_upCell.copy(), right_upCell.copy()));// up face
+                block.sides.add(new Rhomb(oldLeftDownCell.copy(), oldRightDownCell.copy(), left_downCell.copy(), right_downCell.copy()));// down face
               }
 
 
@@ -1227,6 +1196,12 @@ class Rhomb {
   Point5D center;
   int value;
   int nextValue;
+
+  // 3D cache
+  PVector corner1_3D;
+  PVector corner2_3D;
+  PVector corner3_3D;
+  PVector corner4_3D;
 
   public Rhomb(Point5D c1, Point5D c2, Point5D c3, Point5D c4) {
     corner1 = c1;
