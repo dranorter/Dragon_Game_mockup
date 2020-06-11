@@ -1,4 +1,4 @@
-/**************************************** //<>//
+/**************************************** //<>// //<>// //<>// //<>//
  * Dragon Game Mockup by Daniel Demski.
  * 
  * The actual point of this is to make sure that I understand the
@@ -12,8 +12,8 @@
 //import queasycam.*;
 
 // Radius is roughly how many cells will be rendered in
-float radius = 6;
-float driftspeed = 0.1;
+float radius = 5;
+float driftspeed = 1;
 // Tolerance is used when checking whether two vertices are equal.
 float tolerance = 0.01;
 
@@ -31,13 +31,17 @@ boolean clicked = false;
 //float[] fivedeew = {random(-10,10),random(-10,10),random(-10,10),random(-10,10),random(-10,10)};// The position of the screen's origin
 
 // Penrose?
-Point6D fivedeex = new Point6D(new float[]{1, 0.309, -0.809, -0.809, 0.309, 0});
-Point6D fivedeey = new Point6D(new float[]{0, 0.951, 0.588, -0.588, -0.951, 0});
-Point6D fivedeez = new Point6D(new float[]{0, 0, 0, 0, 0, 1});
-Point6D fivedeew = new Point6D(new float[]{0.4, 0.4, 0.4, 0.4, 0.4, 0.4});
-Point6D fivedee0 = new Point6D(new float[]{1, 0.309, -0.809, -0.809, 0.309, 0});
-Point6D fivedee1 = new Point6D(new float[]{0, 0.951, 0.588, -0.588, -0.951, 0});
-Point6D fivedee2 = new Point6D(new float[]{0, 0, 0, 0, 0, 1});
+float phi = (1+sqrt(5))/2;
+Point6D fivedeex = new Point6D(new float[]{phi, 0, 1, phi, 0, -1});
+Point6D fivedeey = new Point6D(new float[]{1, phi, 0, -1, phi, 0});
+Point6D fivedeez = new Point6D(new float[]{0, 1, phi, 0, -1, phi});
+//Point6D fivedeex = new Point6D(new float[]{random(-1, 1), random(-1, 1), random(-1, 1), random(-1, 1), random(-1, 1), random(-1, 1)});
+//Point6D fivedeey = new Point6D(new float[]{random(-1, 1), random(-1, 1), random(-1, 1), random(-1, 1), random(-1, 1), random(-1, 1)});
+//Point6D fivedeez = new Point6D(new float[]{random(-1, 1), random(-1, 1), random(-1, 1), random(-1, 1), random(-1, 1), random(-1, 1)});
+Point6D fivedeew = new Point6D(new float[]{0.3, 0.5, 0.7, 0.11, 0.13, 0.17});
+Point6D fivedee0 = new Point6D(new float[]{0, 0, 0, 0, 0, 0});
+Point6D fivedee1 = new Point6D(new float[]{0, 0, 0, 0, 0, 0});
+Point6D fivedee2 = new Point6D(new float[]{0, 0, 0, 0, 0, 0});
 
 Point6D driftx = new Point6D(new float[]{random(-1, 1), random(-1, 1), random(-1, 1), random(-1, 1), random(-1, 1), random(-1, 1)});
 Point6D drifty = new Point6D(new float[]{random(-1, 1), random(-1, 1), random(-1, 1), random(-1, 1), random(-1, 1), random(-1, 1)});
@@ -73,8 +77,8 @@ void setup() {
   //frustum(10, -10, -10*float(displayHeight)/displayWidth, 10*float(displayHeight)/displayWidth, 10, 1000000);
   originalMatrix = ((PGraphicsOpenGL)this.g).camera;
   cam = new QueasyCam(this);
-  cam.speed = 0.5;
-  cam.sensitivity = 0.5;
+  cam.speed = 0.1;
+  cam.sensitivity = 0.4;
 }
 
 void draw() {
@@ -84,7 +88,7 @@ void draw() {
     spacePressed = false;
   }
   if (run) {
-    drift();
+    generate();
   } else {
     render();
   }
@@ -128,9 +132,9 @@ void setupRender() {
     }
   }
   int selection;
-  for (int loopvar = 0; loopvar < 1000; loopvar++) {
+  for (int loopvar = 0; loopvar < 10000; loopvar++) {
     selection = floor(random(blocks.size()));
-    blocks.get(selection).value = floor(random(0, 10));
+    blocks.get(selection).value = ceil(random(0, 10));
   }
 
   playSetup = true;
@@ -217,6 +221,7 @@ void render() {
       if (clicked) {
         if (mouseButton == RIGHT) block.value = 0;
         clicked = false;
+        println(block.center.point);
       }
       beginShape();
       vertex(closest.corner1_3D.x, closest.corner1_3D.y, closest.corner1_3D.z);
@@ -311,9 +316,6 @@ void drift() {
   // Within the 2D space, we will measure the screen in pixels instead.
   // The 3D space is approximately using pixels.
 
-  clicked = false;
-  playSetup = false;
-
   background(0, 100, 0);
   stroke(100, 100, 100);
   //fivedeex, fivedeey and fivedeez determine the tilt of our plane in higher-d space.
@@ -333,6 +335,12 @@ void drift() {
   driftz = driftz.normalized();
   driftw = driftw.normalized();
 
+  generate();
+}
+
+void generate() {
+  clicked = false;
+  playSetup = false;
   // these are the actual basis vectors: (making them orthogonal)
   fivedee0 = fivedeex.normalized();
   fivedee1 = fivedeey.ortho(fivedee0).normalized();
@@ -403,55 +411,7 @@ void drift() {
     Point6D plane5Dw = new Point6D(0, 0, 0, 0, 0, 0);
     plane5Dw.point[planeDim] = 1;
 
-    Point6D orthox = fivedeex.ortho(plane5Dw);
-    Point6D orthoy = fivedeey.ortho(plane5Dw);
-    Point6D orthoz = fivedeez.ortho(plane5Dw);
-
-    Point6D plane5D0 = new Point6D(0, 0, 0, 0, 0, 0);
-    Point6D plane5D1 = new Point6D(0, 0, 0, 0, 0, 0);
-
-    // We want the larger axes to minimize error maybe? but also because one of them could be zero.
-    if (orthox.length() > orthoy.length()) { 
-      if (orthox.length() > orthoz.length()) {
-        plane5D0 = orthox;
-        if (orthoy.length() > orthoz.length()) {
-          plane5D1 = orthoy;
-        } else {
-          plane5D1 = orthoz;
-        }
-      } else {
-        plane5D0 = orthoz;
-        plane5D1 = orthox;
-      }
-    } else if (orthoy.length() > orthoz.length()) {
-      plane5D0 = orthoy;
-      if (orthox.length() > orthoz.length()) {
-        plane5D1 = orthox;
-      } else {
-        plane5D1 = orthoz;
-      }
-    } else {
-      plane5D0 = orthoz;
-      plane5D1 = orthoy;
-    }
-
-    plane5D0 = plane5D0.normalized();
-    plane5D1 = plane5D1.normalized();
-
-    // Having expressed our 2D basis vectors in 5D, let's express the 5D basis vectors in 2D as well.
-
-    Point2D twodee0 = new Point2D(plane5D0.point[0], plane5D1.point[0]);
-    Point2D twodee1 = new Point2D(plane5D0.point[1], plane5D1.point[1]);
-    Point2D twodee2 = new Point2D(plane5D0.point[2], plane5D1.point[2]);
-    Point2D twodee3 = new Point2D(plane5D0.point[3], plane5D1.point[3]);
-    Point2D twodee4 = new Point2D(plane5D0.point[4], plane5D1.point[4]);
-    Point2D twodee5 = new Point2D(plane5D0.point[5], plane5D1.point[5]);
-
-    twodee = new dimProjector(twodee0.point, twodee1.point, twodee2.point, twodee3.point, twodee4.point, twodee5.point);
-    fivedee = new dimProjector(plane5D0.point, plane5D1.point);//new dimProjector(fivedeex, fivedeey);
-
-
-    for (float planeN = planestarts[planeDim]; planeN < planeends[planeDim]; planeN++) {
+    for (float planeN = planestarts[planeDim]; planeN < planeends[planeDim]; planeN += 1) {
 
       // We are on a plane which slices the rectangular prism which is our 3D space.
 
@@ -480,14 +440,37 @@ void drift() {
             Point6D firstp = (new Point6D[]{spacebounds[0][firstd][secondd], spacebounds[firstd][0][secondd], spacebounds[firstd][secondd][0]})[varied];
             Point6D secondp = (new Point6D[]{spacebounds[1][firstd][secondd], spacebounds[firstd][1][secondd], spacebounds[firstd][secondd][1]})[varied];
             Point6D difference = secondp.minus(firstp);
-            Point6D intersection =  difference.times(planeN - firstp.point[planeDim]).times(1.0/difference.point[planeDim]);
-            if (intersection.dot(difference) < 0 || intersection.length() > difference.length()) {
-              // Point is outside the space, do nothing
-            } else {
-              planecorners.add(intersection.plus(firstp));
+            if (difference.point[planeDim] > 0) {
+              Point6D intersection =  difference.times(planeN - firstp.point[planeDim]).times(1.0/difference.point[planeDim]);
+              if (intersection.dot(difference) < 0 || intersection.length() > difference.length()) {
+                // Point is outside the space, do nothing.
+              } else {
+                planecorners.add(intersection.plus(firstp));
+              }
             }
           }
         }
+      }
+      
+      // Now we have corners, but it's possible they just define e.g. a line segment. 
+      // We don't want to include plane sections with no area because intersections
+      // at the boundary of the space don't contribute Voronoi cells anyway.
+      ArrayList<Point6D> temp = new ArrayList<Point6D>();
+      for (Point6D p : planecorners) temp.add(p);
+      planecorners = new ArrayList<Point6D>();
+      for (Point6D p : temp) {
+        boolean found = false;
+        for (Point6D q : planecorners) {
+          if (q.point[0] == p.point[0] && q.point[1] == p.point[1] && q.point[2] == p.point[2] && q.point[3] == p.point[3] && q.point[4] == p.point[4] && q.point[5] == p.point[5]) {
+            found = true;
+            break;
+          }
+        }
+        if (!found) planecorners.add(p);
+      }
+      if (planecorners.size() < 3) {
+        // Move on to next plane
+        continue;
       }
 
       // OK I've got corners... what do I do with corners???
@@ -495,6 +478,7 @@ void drift() {
       // I guess all I'm looking for right now is minimum values on the slice, in each higher-d dimension but planeDim.
       // O..of course they do have to be properly rounded to the needed half-integer.
 
+      // TODO- I don't need all these values in loops where not all of them are being calculated.
       // Start values are rounded properly to give us an actual place to start
       float[] cornervals = new float[planecorners.size()];
       for (int c = 0; c < planecorners.size(); c++) {
@@ -502,7 +486,7 @@ void drift() {
       }
       float start0 = ceil(min(cornervals)+0.5)-0.5;
       for (int c = 0; c < planecorners.size(); c++) {
-        cornervals[c] = planecorners.get(c).point[1]; //<>//
+        cornervals[c] = planecorners.get(c).point[1];
       }
       float start1 = ceil(min(cornervals)+0.5)-0.5;
       for (int c = 0; c < planecorners.size(); c++) {
@@ -553,7 +537,7 @@ void drift() {
 
       println("Plane slices: "+(planeDim*16.6+(planeN-planestarts[planeDim])*16.6/(planeends[planeDim]-planestarts[planeDim]))+"%");
       //background((planeDim*20+(planeN-planestarts[planeDim])*20/(planeends[planeDim]-planestarts[planeDim]))*255);
-      
+
       //Starting with planeDim because the other lines have been checked already back when they were planes.
       for (int N = planeDim; N < 6; N++) {
         //Skip this iteration if we're on the dimension which generated the plane.
@@ -580,27 +564,41 @@ void drift() {
                 // okay, segment starting at planecorners.get(i) and ending at planecorners.get(j).
                 if ((dimN <= planecorners.get(i).point[N] || dimN <= planecorners.get(j).point[N]) && (dimN >= planecorners.get(i).point[N] || dimN >= planecorners.get(j).point[N])) {
                   float dist = (dimN - planecorners.get(i).point[N])/(planecorners.get(j).point[N] - planecorners.get(i).point[N]);
-                  intersections.add(planecorners.get(i).plus((planecorners.get(j).minus(planecorners.get(i))).times(dist)));
+                  if (dist > 0 && dist < 1) {// Intersections right on the edge don't introduce cells
+                    intersections.add(planecorners.get(i).plus((planecorners.get(j).minus(planecorners.get(i))).times(dist)));
+                  }
                 }
               }
             }
           }
+          
+          // If the only intersection is at a corner, we can end up with none, in which case, skip
+          if (intersections.size() == 0) continue;
 
           // For consistency of direction, we want a convention for which side is "enter" and which "exit". Using vector [1,1,1,1,1] for direction.
-          Point6D metric = new Point6D(1, 1, 1, 1, 1, 1);
-
           Point6D enterp = intersections.get(0);
           Point6D exitp = intersections.get(0);
+          Point6D metric = new Point6D(1, 1, 1, 1, 1, 1);
+
           for (int i = 0; i < intersections.size(); i++) {
             if (intersections.get(i).dot(metric) < enterp.dot(metric)) enterp = intersections.get(i);
             if (intersections.get(i).dot(metric) > exitp.dot(metric)) exitp = intersections.get(i);
+          }
+          if (enterp == exitp) {
+            metric = intersections.get(0).minus(intersections.get(intersections.size()-1));
+            for (int i = 0; i < intersections.size(); i++) {
+              if (intersections.get(i).dot(metric) < enterp.dot(metric)) enterp = intersections.get(i);
+              if (intersections.get(i).dot(metric) > exitp.dot(metric)) exitp = intersections.get(i);
+            }
           }
 
           // TODO do something about bad metric instead of just raising an exception.
           // A viable alternative would be to choose the two intersection points maximally
           // distant from one another. Can I do without the "metric" thing entirely?
+
+
         assert enterp != exitp : 
-          "Unable to determine entry/exit. Bad metric?";
+          "Unable to determine entry/exit. Bad metric?"; //<>//
 
 
           enter = enterp.copy().point;
@@ -620,8 +618,11 @@ void drift() {
           ArrayList<Float> dists = new ArrayList<Float>();
           ArrayList<Integer> dims = new ArrayList<Integer>();
 
-          // Starting at d = N to skip lines which have already had their turn.
-          for (int d = N; d < 6; d++) {
+          // Starting at d = 0. At one point I was silly and started at d = N.
+          // We have to use d = 0 because we inherently want to catch old crossings.
+          // TODO could we record old crossings and use them to start at d = N and
+          // be more efficient?
+          for (int d = 0; d < 6; d++) {
             if (d != N && d != planeDim) {
               // We want to catch any included half-integer values, so we'll subtract 0.5 and take all integer values of that range.
               for (int i = ceil(min(enter[d], exit[d])-0.5); i <= max(enter[d], exit[d])-0.5; i++) {//I changed from floor to ceil here. We don't want an intersection which isn't onscreen.//TODO This change fixed stuff but I don't see why it did! Reverse engineer bug!!
@@ -735,6 +736,12 @@ void drift() {
               // What about up vs. down? Well, I guess they just get grouped by left and right. These 
               // sixteen Voronoi cells indeed intersect our space and generate those vertices; and the 
               // vertices are connected in the way which this crossing order suggests.
+              // In this specific example (with 4 lines crossing), 
+              if (i+1 < dists.size() && abs(dists.get(i) - dists.get(i+1)) < 0.01) {
+                println("Possible double-cross. Difference was "+(dists.get(i) - dists.get(i+1)));
+                println("Dimensions: "+dims.get(i)+", "+dims.get(i+1));
+              }
+
               int dim = sorteddims[i];
               int dir = enter[dim] < exit[dim] ? 1 : -1;
 
@@ -752,6 +759,16 @@ void drift() {
               right_downCell.point[dim] += 1*dir;
               left_upCell.point[dim] += 1*dir;
               right_upCell.point[dim] += 1*dir;
+
+              Point6D newintersection = enterp.plus((exitp.minus(enterp)).times(sorteddists[i]));
+              /*println(oldLeftDownCell.minus(newintersection).length());
+               println(oldRightDownCell.minus(newintersection).length());
+               println(oldLeftUpCell.minus(newintersection).length());
+               println(oldRightUpCell.minus(newintersection).length());
+               println(left_downCell.minus(newintersection).length());
+               println(right_downCell.minus(newintersection).length());
+               println(left_upCell.minus(newintersection).length());
+               println(right_upCell.minus(newintersection).length());*/
 
               // TODO Would it be beneficial to weed out repetition in the
               // list of cells? Cells don't track their parent rhombuses right
@@ -959,7 +976,7 @@ public class Point6D {
   }
 
   public Point6D minus(Point6D p) {
-    return new Point6D(point[0]-p.point[0], point[1]-p.point[1], point[2]-p.point[2], point[3]-p.point[3], point[4]-p.point[4], point[5]-p.point[5]); //<>//
+    return new Point6D(point[0]-p.point[0], point[1]-p.point[1], point[2]-p.point[2], point[3]-p.point[3], point[4]-p.point[4], point[5]-p.point[5]);
   }
 
   public Point6D plus(Point6D p) {
@@ -1094,7 +1111,8 @@ class dimProjector {
 
   public Point2D project(Point6D p5d) {
     float[] p = p5d.point;
-    return new Point2D((p[0]*basis[0][0]+p[1]*basis[1][0]+p[2]*basis[2][0]+p[3]*basis[3][0]+p[4]*basis[4][0]+p[5]*basis[5][0])*float(width)/(radius*float(width)/float(height)), 
+    return new Point2D(
+      (p[0]*basis[0][0]+p[1]*basis[1][0]+p[2]*basis[2][0]+p[3]*basis[3][0]+p[4]*basis[4][0]+p[5]*basis[5][0])*float(width)/(radius*float(width)/float(height)), 
       (p[0]*basis[0][1]+p[1]*basis[1][1]+p[2]*basis[2][1]+p[3]*basis[3][1]+p[4]*basis[4][1]+p[5]*basis[5][1])*float(height)/radius);
   }
 
@@ -1105,7 +1123,7 @@ class dimProjector {
       (p[0]*basis[0][1]+p[1]*basis[1][1])*radius/float(height), 
       (p[0]*basis[0][2]+p[1]*basis[1][2])*radius/float(height), 
       (p[0]*basis[0][3]+p[1]*basis[1][3])*radius/float(height), 
-      (p[0]*basis[0][4]+p[1]*basis[1][4])*radius/float(height),
+      (p[0]*basis[0][4]+p[1]*basis[1][4])*radius/float(height), 
       (p[0]*basis[0][5]+p[1]*basis[1][5])*radius/float(height));
   }
 }
