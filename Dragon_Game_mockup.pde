@@ -224,6 +224,7 @@ void setupRender() {
       face.corner2_3D = new PVector(face.corner2.minus(fivedeew).dot(fivedeex.normalized()), face.corner2.minus(fivedeew).dot(fivedeey.normalized()), face.corner2.minus(fivedeew).dot(fivedeez.normalized()));
       face.corner3_3D = new PVector(face.corner3.minus(fivedeew).dot(fivedeex.normalized()), face.corner3.minus(fivedeew).dot(fivedeey.normalized()), face.corner3.minus(fivedeew).dot(fivedeez.normalized()));
       face.corner4_3D = new PVector(face.corner4.minus(fivedeew).dot(fivedeex.normalized()), face.corner4.minus(fivedeew).dot(fivedeey.normalized()), face.corner4.minus(fivedeew).dot(fivedeez.normalized()));
+      face.center_3D = new PVector(face.center.minus(fivedeew).dot(fivedeex.normalized()), face.center.minus(fivedeew).dot(fivedeey.normalized()), face.center.minus(fivedeew).dot(fivedeez.normalized()));
     }
   }
   int selection;
@@ -249,24 +250,71 @@ void render() {
     setupRender();
   }
   background(0, 100, 0);
+  ArrayList<Rhomb> pointedAt = new ArrayList<Rhomb>();
   for (Block block : blocks) {
     if (block.value > 0) {
       for (Rhomb face : block.sides) {
-        if (cameraPoint(face)) {
-          stroke(255, 255, 0);
-          fill(255-(255-block.value*25)*0.8, 255-(255-block.value*10)*0.8, 255-block.value*25*0.8);
-        } else {
-          stroke(100);
-          fill(block.value*25, block.value*10, 255-block.value*25);
+        //TODO Right now I render some faces twice.
+        boolean hasair = true;
+        if (face.parents.size() == 2) {
+          if (face.parents.get(0).value > 0 && face.parents.get(1).value > 0) {
+            hasair = false;
+          }
         }
-        beginShape();
-        vertex(face.corner1_3D.x, face.corner1_3D.y, face.corner1_3D.z);
-        vertex(face.corner2_3D.x, face.corner2_3D.y, face.corner2_3D.z);
-        vertex(face.corner4_3D.x, face.corner4_3D.y, face.corner4_3D.z);
-        vertex(face.corner3_3D.x, face.corner3_3D.y, face.corner3_3D.z);
-        endShape(CLOSE);
+        if (hasair) {
+          if (cameraPoint(face)) {
+            pointedAt.add(face);
+          }
+          //stroke(100);
+          noStroke();
+          fill(block.value*25, block.value*10, 255-block.value*25);
+          beginShape();
+          vertex(face.corner1_3D.x, face.corner1_3D.y, face.corner1_3D.z);
+          vertex(face.corner2_3D.x, face.corner2_3D.y, face.corner2_3D.z);
+          vertex(face.corner4_3D.x, face.corner4_3D.y, face.corner4_3D.z);
+          vertex(face.corner3_3D.x, face.corner3_3D.y, face.corner3_3D.z);
+          endShape(CLOSE);
+        }
       }
     }
+  }
+  if (pointedAt.size() > 0) {
+    Rhomb closest = pointedAt.get(0);
+    float closestDist = closest.center_3D.copy().sub(cam.position).dot(cam.getForward());
+    for (int i = 1; i < pointedAt.size(); i++) {
+      float dist = pointedAt.get(i).center_3D.copy().sub(cam.position).dot(cam.getForward());
+      if (closestDist > dist) {
+        closestDist = dist;
+        closest = pointedAt.get(i);
+      }
+    }
+    Block block = closest.parents.get(0);
+    if (closest.parents.size() == 2) {
+      // Both sides are generated
+      Block empty = closest.parents.get(1);
+      if (block.value == 0) {
+        block = closest.parents.get(1);
+        empty = closest.parents.get(0);
+      }
+      if (mousePressed) {
+        if (mouseButton == LEFT) empty.value += 1;
+        if (mouseButton == RIGHT) block.value = 0;
+      }
+      stroke(0, 255, 0);
+      fill(255-(255-block.value*25)*0.8, 255-(255-block.value*10)*0.8, 255-block.value*25*0.8);
+    } else {
+      stroke(255, 255, 0);
+      fill(255-(255-block.value*25)*0.8, 255-(255-block.value*10)*0.8, 255-block.value*25*0.8);
+      if (mousePressed) {
+        if (mouseButton == RIGHT) block.value = 0;
+      }
+    }
+    beginShape();
+    vertex(closest.corner1_3D.x, closest.corner1_3D.y, closest.corner1_3D.z);
+    vertex(closest.corner2_3D.x, closest.corner2_3D.y, closest.corner2_3D.z);
+    vertex(closest.corner4_3D.x, closest.corner4_3D.y, closest.corner4_3D.z);
+    vertex(closest.corner3_3D.x, closest.corner3_3D.y, closest.corner3_3D.z);
+    endShape(CLOSE);
   }
   drawCrosshair();
 }
@@ -519,6 +567,10 @@ void drift() {
     twodee = new dimProjector(twodee0.point, twodee1.point, twodee2.point, twodee3.point, twodee4.point);
     fivedee = new dimProjector(plane5D0.point, plane5D1.point);//new dimProjector(fivedeex, fivedeey);
 
+    // Clear out the arrays
+    cells = new ArrayList<Point5D>();
+    rhombs = new ArrayList<Rhomb>();
+
 
     for (float planeN = planestarts[planeDim]; planeN < planeends[planeDim]; planeN++) {
 
@@ -527,11 +579,6 @@ void drift() {
       plane5Dw.point[planeDim] = planeN;
 
       // Now we need to find all Voronoi cells of the 5D lattice which intersect our plane.
-
-      // Clear out the arrays
-      cells = new ArrayList<Point5D>();
-      edges = new ArrayList<Point5D>();
-      rhombs = new ArrayList<Rhomb>();
 
       // Halfway between lattice points are hyperplanes defined by having a particular half-integer value in a particular one of the five dimensions. 
       // These hyperplanes intersect our plane (the screen) in a line; five parallel sets of lines. Where these lines intersect, we're switching from 
@@ -752,7 +799,7 @@ void drift() {
 
             // Then step through each one, iterating the associated dimension in the correct direction to get the right latticepoint.
 
-            
+
             // We step through with four cells; below vs. above the current plane, and to either side of the current line.
             Point5D left_downCell = new Point5D(round(enter[0]), round(enter[1]), round(enter[2]), round(enter[3]), round(enter[4]));
             // We have to add or subtract a bit to ensure we fall the desired direction for each starting cell. 
@@ -772,7 +819,10 @@ void drift() {
             right_upCell.point[planeDim] = round(enter[planeDim]+0.01);
 
 
-
+            // TODO Would it be beneficial to weed out repetition in the
+            // list of cells? Cells don't track their parent rhombuses right
+            // now and I'm not sure they should; right now I basically
+            // don't use the cells ArrayList for anything.
             cells.add(left_downCell);
             cells.add(right_downCell);
             cells.add(left_upCell);
@@ -832,6 +882,11 @@ void drift() {
               right_downCell.point[dim] += 1*dir;
               left_upCell.point[dim] += 1*dir;
               right_upCell.point[dim] += 1*dir;
+
+              // TODO Would it be beneficial to weed out repetition in the
+              // list of cells? Cells don't track their parent rhombuses right
+              // now and I'm not sure they should; right now I basically
+              // don't use the cells ArrayList for anything.
               cells.add(left_downCell);
               cells.add(right_downCell);
               cells.add(left_upCell);
@@ -887,6 +942,7 @@ void drift() {
                 if (maxdivergence < 0.001) {//TODO Apparently we get floating point error around 0.005, at least w/in the "enter" variable
                   blockregistered = true;
                   prev = b;
+                  break;
                 }
               }
               if (!blockregistered) {
@@ -899,6 +955,33 @@ void drift() {
                 block.sides.add(new Rhomb(right_downCell.copy(), oldRightDownCell.copy(), right_upCell.copy(), oldRightUpCell.copy()));// right face
                 block.sides.add(new Rhomb(oldLeftUpCell.copy(), oldRightUpCell.copy(), left_upCell.copy(), right_upCell.copy()));// up face
                 block.sides.add(new Rhomb(oldLeftDownCell.copy(), oldRightDownCell.copy(), left_downCell.copy(), right_downCell.copy()));// down face
+                for (int side = 0; side < block.sides.size(); side++) {
+                  boolean rhombregistered = false;
+                  // Rather than tracking direction and next vs. prev,
+                  // for now I'm just going to rely on rhombs' ordering in "sides"
+                  // lining up with neighboring blocks' ordering in "next".
+                  for (Rhomb r : rhombs) {
+                    Point5D difference = block.sides.get(side).center.minus(r.center);
+                    float maxdivergence = max(new float[]{abs(difference.point[0]), abs(difference.point[1]), abs(difference.point[2]), abs(difference.point[3]), abs(difference.point[4])});
+                    if (maxdivergence < 0.001) {
+                      // Rhombus already exists.
+                      block.sides.set(side, r);
+                      // Rhombus must have one parent.
+                      Block neighbor = r.parents.get(0);
+                      block.next.add(neighbor);
+                      neighbor.next.set(neighbor.sides.indexOf(r), block);
+                      r.parents.add(block);
+                      rhombregistered = true;
+                      break;
+                    }
+                  }
+                  if (!rhombregistered) {
+                    rhombs.add(block.sides.get(side));
+                    // Keep lists even w/ null elements
+                    block.next.add(null);
+                    block.sides.get(side).parents.add(block);
+                  }
+                }
               }
 
 
@@ -1185,6 +1268,7 @@ class dimProjector {
 class Rhomb {
   int axis1;
   int axis2;
+  ArrayList<Block> parents;
   Rhomb a1prev;
   Rhomb a1next;
   Rhomb a2prev;
@@ -1202,6 +1286,7 @@ class Rhomb {
   PVector corner2_3D;
   PVector corner3_3D;
   PVector corner4_3D;
+  PVector center_3D;
 
   public Rhomb(Point5D c1, Point5D c2, Point5D c3, Point5D c4) {
     corner1 = c1;
@@ -1213,6 +1298,7 @@ class Rhomb {
     a2prev = null;
     a1next = null;
     a2next = null;
+    parents = new ArrayList<Block>();
   }
 }
 
@@ -1221,6 +1307,7 @@ class Block {
   ArrayList<Block> prev;
   ArrayList<Block> next;
   ArrayList<Rhomb> sides;
+  ArrayList<Chunk> parents;
   Point5D center;
   int value;
   int nextValue;
@@ -1233,5 +1320,19 @@ class Block {
     center = p;
     value = 0;
     nextValue = -1;
+
+    // TODO I'd like to have dummy values for the four "prev" and "next"
+    // variables, as well as for the "parents", representing "that hasn't
+    // been generated yet". When something requests the dummy, it could 
+    // then be generated in.
+  }
+}
+
+class Chunk extends Block {
+  int level;
+
+  public Chunk(Point5D p) {
+    super(p);
+    level = 0;
   }
 }
