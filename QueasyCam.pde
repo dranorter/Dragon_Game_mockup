@@ -1,4 +1,6 @@
 /**
+ * QueasyCam library, grabbed from https://github.com/jrc03c/queasycam.
+ *
  * ##library.name##
  * ##library.sentence##
  * ##library.url##
