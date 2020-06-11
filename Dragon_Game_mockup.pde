@@ -172,49 +172,12 @@ int rotateColor(int c) {
 }
 
 void setupRender() {
-  /*rc2D = new ArrayList<Point2D>();
-   for (int i=0; i < rhombs.size(); i++) {
-   Rhomb rhomb = rhombs.get(i);*/
-  /*Need to set up the following in BLock:
-   ArrayList<Integer> axes;
-   ArrayList<Block> prev;
-   ArrayList<Block> next;
-   ArrayList<Rhomb> sides;*/
-  /*for (Rhomb r : rhombs) {
-   float corner1neighbor = min(new float[]{rhomb.corner1.minus(r.corner1).length(), rhomb.corner1.minus(r.corner2).length(), 
-   rhomb.corner1.minus(r.corner3).length(), rhomb.corner1.minus(r.corner4).length()});
-   float corner2neighbor = min(new float[]{rhomb.corner2.minus(r.corner1).length(), rhomb.corner2.minus(r.corner2).length(), 
-   rhomb.corner2.minus(r.corner3).length(), rhomb.corner2.minus(r.corner4).length()});
-   float corner3neighbor = min(new float[]{rhomb.corner3.minus(r.corner1).length(), rhomb.corner3.minus(r.corner2).length(), 
-   rhomb.corner3.minus(r.corner3).length(), rhomb.corner3.minus(r.corner4).length()});
-   float corner4neighbor = min(new float[]{rhomb.corner4.minus(r.corner1).length(), rhomb.corner4.minus(r.corner2).length(), 
-   rhomb.corner4.minus(r.corner3).length(), rhomb.corner4.minus(r.corner4).length()});
-   
-   if (corner1neighbor < 0.1 && corner2neighbor < 0.1 && corner3neighbor > 0.1) {
-   rhomb.a1prev = r;
-   //r.a1next = rhomb;
-   } else if (corner3neighbor < 0.1 && corner4neighbor < 0.1 && corner1neighbor > 0.1) {
-   rhomb.a1next = r;
-   //r.a1prev = rhomb;
-   } else if (corner1neighbor < 0.1 && corner3neighbor < 0.1 && corner2neighbor > 0.1) {
-   rhomb.a2prev = r;
-   //r.a2next = rhomb;
-   } else if (corner2neighbor < 0.1 && corner4neighbor < 0.1 && corner1neighbor > 0.1) {
-   rhomb.a2next = r;
-   //r.a2prev = rhomb;
-   }
-   }
-   rc2D.add(twodee.project(rhomb.center.minus(fivedeew)));
-   rhomb.value = 0;
-   //rhomb.value = i;
-   }
-   addValue();
-   addValue();
-   addValue();
-   int selection = floor(random(rhombs.size()));
-   rhombs.get(selection).value = 1;*/
+  int count = 0;
+  int validcount = 0;
   for (Block block : blocks) {
     for (Rhomb face : block.sides) {
+      count++;
+      if (rhombs.contains(face)) validcount++;
       // TODO shouldn't have to re-normalize each time; make fivedee0 etc. global.
       /* TODO I'm repeating calculations here; the block only has a few vertices, but each
        vertex has several rhombuses. Ideally what I would do is have a Vertex object which 
@@ -227,6 +190,9 @@ void setupRender() {
       face.center_3D = new PVector(face.center.minus(fivedeew).dot(fivedeex.normalized()), face.center.minus(fivedeew).dot(fivedeey.normalized()), face.center.minus(fivedeew).dot(fivedeez.normalized()));
     }
   }
+  println(count);
+  println(validcount);
+  println(rhombs.size());
   int selection;
   for (int loopvar = 0; loopvar < 1000; loopvar++) {
     selection = floor(random(blocks.size()));
@@ -296,25 +262,43 @@ void render() {
         block = closest.parents.get(1);
         empty = closest.parents.get(0);
       }
-      if (mousePressed) {
+      if (clicked) {
         if (mouseButton == LEFT) empty.value += 1;
         if (mouseButton == RIGHT) block.value = 0;
+        clicked = false;
+      }
+      stroke(255);
+      noFill();
+      for (Rhomb face : empty.sides) {
+        beginShape();
+        vertex(face.corner1_3D.x, face.corner1_3D.y, face.corner1_3D.z);
+        vertex(face.corner2_3D.x, face.corner2_3D.y, face.corner2_3D.z);
+        vertex(face.corner4_3D.x, face.corner4_3D.y, face.corner4_3D.z);
+        vertex(face.corner3_3D.x, face.corner3_3D.y, face.corner3_3D.z);
+        endShape(CLOSE);
       }
       stroke(0, 255, 0);
       fill(255-(255-block.value*25)*0.8, 255-(255-block.value*10)*0.8, 255-block.value*25*0.8);
+      beginShape();
+      vertex(closest.corner1_3D.x, closest.corner1_3D.y, closest.corner1_3D.z);
+      vertex(closest.corner2_3D.x, closest.corner2_3D.y, closest.corner2_3D.z);
+      vertex(closest.corner4_3D.x, closest.corner4_3D.y, closest.corner4_3D.z);
+      vertex(closest.corner3_3D.x, closest.corner3_3D.y, closest.corner3_3D.z);
+      endShape(CLOSE);
     } else {
       stroke(255, 255, 0);
       fill(255-(255-block.value*25)*0.8, 255-(255-block.value*10)*0.8, 255-block.value*25*0.8);
-      if (mousePressed) {
+      if (clicked) {
         if (mouseButton == RIGHT) block.value = 0;
+        clicked = false;
       }
+      beginShape();
+      vertex(closest.corner1_3D.x, closest.corner1_3D.y, closest.corner1_3D.z);
+      vertex(closest.corner2_3D.x, closest.corner2_3D.y, closest.corner2_3D.z);
+      vertex(closest.corner4_3D.x, closest.corner4_3D.y, closest.corner4_3D.z);
+      vertex(closest.corner3_3D.x, closest.corner3_3D.y, closest.corner3_3D.z);
+      endShape(CLOSE);
     }
-    beginShape();
-    vertex(closest.corner1_3D.x, closest.corner1_3D.y, closest.corner1_3D.z);
-    vertex(closest.corner2_3D.x, closest.corner2_3D.y, closest.corner2_3D.z);
-    vertex(closest.corner4_3D.x, closest.corner4_3D.y, closest.corner4_3D.z);
-    vertex(closest.corner3_3D.x, closest.corner3_3D.y, closest.corner3_3D.z);
-    endShape(CLOSE);
   }
   drawCrosshair();
 }
@@ -508,6 +492,11 @@ void drift() {
   spacebounds[1][1][0] = corner110;
   spacebounds[1][1][1] = corner111;
 
+
+  // Clear out the arrays
+  cells = new ArrayList<Point5D>();
+  rhombs = new ArrayList<Rhomb>();
+
   // Iterate over the dimension we hold constant
   for (int planeDim = 0; planeDim < 5; planeDim++) {
     // Iterate over the value at which we hold planeDim constant
@@ -566,10 +555,6 @@ void drift() {
 
     twodee = new dimProjector(twodee0.point, twodee1.point, twodee2.point, twodee3.point, twodee4.point);
     fivedee = new dimProjector(plane5D0.point, plane5D1.point);//new dimProjector(fivedeex, fivedeey);
-
-    // Clear out the arrays
-    cells = new ArrayList<Point5D>();
-    rhombs = new ArrayList<Rhomb>();
 
 
     for (float planeN = planestarts[planeDim]; planeN < planeends[planeDim]; planeN++) {
@@ -963,7 +948,7 @@ void drift() {
                   for (Rhomb r : rhombs) {
                     Point5D difference = block.sides.get(side).center.minus(r.center);
                     float maxdivergence = max(new float[]{abs(difference.point[0]), abs(difference.point[1]), abs(difference.point[2]), abs(difference.point[3]), abs(difference.point[4])});
-                    if (maxdivergence < 0.001) {
+                    if (maxdivergence < 0.01) {
                       // Rhombus already exists.
                       block.sides.set(side, r);
                       // Rhombus must have one parent.
