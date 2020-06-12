@@ -220,3 +220,137 @@ public class QueasyCam {
     }
     
 }
+
+public class Point6D {
+  public float[] point = {0, 0, 0, 0, 0, 0};
+
+  public Point6D (float a, float b, float c, float d, float e, float f) {
+    point = new float[]{a, b, c, d, e, f};
+  }
+
+  public Point6D (float[] p) {
+    point = p;
+  }
+
+  public Point6D minus(Point6D p) {
+    return new Point6D(point[0]-p.point[0], point[1]-p.point[1], point[2]-p.point[2], point[3]-p.point[3], point[4]-p.point[4], point[5]-p.point[5]);
+  }
+
+  public Point6D plus(Point6D p) {
+    return new Point6D(point[0]+p.point[0], point[1]+p.point[1], point[2]+p.point[2], point[3]+p.point[3], point[4]+p.point[4], point[5]+p.point[5]);
+  }
+
+  public float dot(Point6D p) {
+    return point[0]*p.point[0]+point[1]*p.point[1]+point[2]*p.point[2]+point[3]*p.point[3]+point[4]*p.point[4]+point[5]*p.point[5];
+  }
+
+  public Point6D times(float scalar) {
+    return new Point6D(point[0]*scalar, point[1]*scalar, point[2]*scalar, point[3]*scalar, point[4]*scalar, point[5]*scalar);
+  }
+
+  public float length() {
+    return sqrt(point[0]*point[0]+point[1]*point[1]+point[2]*point[2]+point[3]*point[3]+point[4]*point[4]+point[5]*point[5]);
+  }
+
+  public Point6D normalized() {
+    float currentLength = length();
+    return new Point6D(point[0]/currentLength, point[1]/currentLength, point[2]/currentLength, point[3]/currentLength, point[4]/currentLength, point[5]/currentLength);
+  }
+
+  public Point6D ortho(Point6D p) {
+    // Returns the component which is orthogonal to p
+    Point6D pnorm = p.normalized();
+    float dotprod = dot(pnorm);
+    return new Point6D(point[0]-dotprod*pnorm.point[0], point[1]-dotprod*pnorm.point[1], point[2]-dotprod*pnorm.point[2], point[3]-dotprod*pnorm.point[3], point[4]-dotprod*pnorm.point[4], point[5]-dotprod*pnorm.point[5]);
+  }
+
+  public Point6D averageWith(ArrayList<Point6D> points) {
+    Point6D sum = new Point6D(new float[]{point[0], point[1], point[2], point[3], point[4], point[5]});
+    for (Point6D p : points) {
+      sum = sum.plus(p);
+    }
+    sum = sum.times(1.0/(points.size()+1));
+    return sum;
+  }
+
+  public Point6D copy() {
+    return new Point6D(new float[]{point[0], point[1], point[2], point[3], point[4], point[5]});
+  }
+}
+
+class Point2D implements Comparable<Point2D> {
+
+  public java.util.Comparator<Point2D> Lexico = new java.util.Comparator<Point2D>() {
+
+    @Override
+      public int compare(Point2D a, Point2D b) {
+      if (a.point[0] > b.point[0]) {
+        return 1;
+      }
+      if (a.point[0] < b.point[0]) {
+        return -1;
+      }
+      if (a.point[1] > b.point[1]) {
+        return 1;
+      }
+      if (a.point[1] < b.point[1]) {
+        return -1;
+      }
+      return 0;
+    }
+  };
+  public float[] point = {0, 0};
+
+
+  public Point2D(float x, float y) {
+    point = new float[]{x, y};
+  }
+
+  public Point2D(float[] p) {
+    point = new float[]{p[0], p[1]};
+  }
+
+  public float dot(Point2D p) {
+    return point[0]*p.point[0]+point[1]*p.point[1];
+  }
+
+  public Point2D minus(Point2D p) {
+    return new Point2D(point[0]-p.point[0], point[1]-p.point[1]);
+  }
+
+  public float length() {
+    return sqrt(point[0]*point[0]+point[1]*point[1]);
+  }
+
+  public int compareTo(Point2D p) {
+    if (point[0] > p.point[0]) {
+      return 1;
+    }
+    if (point[0] < p.point[0]) {
+      return -1;
+    }
+    if (point[1] > p.point[1]) {
+      return 1;
+    }
+    if (point[1] < p.point[1]) {
+      return -1;
+    }
+    return 0;
+  }
+
+  public float x() {
+    return point[0];
+  }
+
+  public float y() {
+    return point[1];
+  }
+
+  public Point2D orthoflip() {
+    return new Point2D(point[1], -point[0]);
+  }
+
+  public Point2D copy() {
+    return new Point2D(new float[]{point[0], point[1]});
+  }
+}
