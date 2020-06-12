@@ -26,11 +26,12 @@ public class Quasicrystal {
   ArrayList<Rhomb> rhombs = new ArrayList<Rhomb>();
   ArrayList<Block> blocks = new ArrayList<Block>();
 
-  public Quasicrystal(Point6D w, Point6D x, Point6D y, Point6D z) {
+  public Quasicrystal(Point6D w, Point6D x, Point6D y, Point6D z, float r) {
     fivedeex = x;
     fivedeey = y;
     fivedeez = z;
     fivedeew = w;
+    radius = r;
     // these are the actual basis vectors: (making them orthogonal)
     fivedee0 = fivedeex.normalized();
     fivedee1 = fivedeey.ortho(fivedee0).normalized();
@@ -38,9 +39,9 @@ public class Quasicrystal {
 
     // We then make our original vectors line up to these.
     // Sizes here determine bounded area of the render.
-    fivedeex = fivedee0.times(radius*float(width)/float(height));
+    fivedeex = fivedee0.times(radius);
     fivedeey = fivedee1.times(radius);
-    fivedeez = fivedee2.times(radius*float(width)/float(height));
+    fivedeez = fivedee2.times(radius);
 
     // Now we need to iterate over all the planes which fall inside our space, checking for intersections.
 
@@ -224,6 +225,8 @@ public class Quasicrystal {
 
         float[] dimstarts = {start0, start1, start2, start3, start4, start5};
         float[] dimends   = {end0, end1, end2, end3, end4, end5};
+        
+        
 
         println("Plane slices: "+(planeDim*16.6+(planeN-planestarts[planeDim])*16.6/(planeends[planeDim]-planestarts[planeDim]))+"%");
         //background((planeDim*20+(planeN-planestarts[planeDim])*20/(planeends[planeDim]-planestarts[planeDim]))*255);
@@ -311,7 +314,13 @@ public class Quasicrystal {
             // Starting at d = 0. At one point I was silly and started at d = N.
             // We have to use d = 0 because we inherently want to catch old crossings.
             // TODO could we record old crossings and use them to start at d = N and
-            // be more efficient?
+            // be more efficient? What we need for this is to create all the "dists"
+            // lists right away, and whenever we find a crossing, add it to both our
+            // current dimension's list and the other one's. However, it does need 
+            // to all be sorted by which values both lines take on (as well as the 
+            // plane) so that we can then quickly find them right before this for 
+            // loop and add them to dists/dims. And we don't know ahead of time
+            // what all the values that will be fixed are - though we do know bounds.
             for (int d = 0; d < 6; d++) {
               if (d != N && d != planeDim) {
                 // We want to catch any included half-integer values, so we'll subtract 0.5 and take all integer values of that range.
@@ -450,7 +459,7 @@ public class Quasicrystal {
                 left_upCell.point[dim] += 1*dir;
                 right_upCell.point[dim] += 1*dir;
 
-                Point6D newintersection = enterp.plus((exitp.minus(enterp)).times(sorteddists[i]));
+                //Point6D newintersection = enterp.plus((exitp.minus(enterp)).times(sorteddists[i]));
                 /*println(oldLeftDownCell.minus(newintersection).length());
                  println(oldRightDownCell.minus(newintersection).length());
                  println(oldLeftUpCell.minus(newintersection).length());
@@ -464,10 +473,12 @@ public class Quasicrystal {
                 // list of cells? Cells don't track their parent rhombuses right
                 // now and I'm not sure they should; right now I basically
                 // don't use the cells ArrayList for anything.
-                cells.add(left_downCell);
-                cells.add(right_downCell);
-                cells.add(left_upCell);
-                cells.add(right_upCell);
+                // I could be using cells to track intersections (ie, dists)
+                // and stop computing them all three times as I currently do.
+                //cells.add(left_downCell);
+                //cells.add(right_downCell);
+                //cells.add(left_upCell);
+                //cells.add(right_upCell);
 
                 // Our eight cell-centers define a parallelepiped (of course in 5D it's a cube). In dim N, the left cells 
                 // lie in the positive direction from the right. In planeDim, the up cells lie in the positive direction 
@@ -510,7 +521,10 @@ public class Quasicrystal {
 
                 // I'm going to skip determination of prev and next for now, as well as skip properly 
                 // initializing axis1 and axis2 for the individual rhombuses.
-
+                
+                // TODO This part would be faster if I had the blocks
+                // in some sort of data structure so they could be
+                // found. non-exhaustively.
                 boolean blockregistered = false;
                 Block prev;
                 for (Block b : blocks) {
@@ -533,21 +547,23 @@ public class Quasicrystal {
                   block.sides.add(new Rhomb(oldLeftUpCell.copy(), oldRightUpCell.copy(), left_upCell.copy(), right_upCell.copy()));// up face
                   block.sides.add(new Rhomb(oldLeftDownCell.copy(), oldRightDownCell.copy(), left_downCell.copy(), right_downCell.copy()));// down face
                   for (int side = 0; side < block.sides.size(); side++) {
+                    // I probably spend a whole lot of my time checking for duplicate rhombs.
+                    // Should store them in a searchable way.
                     boolean rhombregistered = false;
                     // Rather than tracking direction and next vs. prev,
                     // for now I'm just going to rely on rhombs' ordering in "sides"
                     // lining up with neighboring blocks' ordering in "next".
-                    for (Rhomb r : rhombs) {
-                      Point6D difference = block.sides.get(side).center.minus(r.center);
+                    for (Rhomb rh : rhombs) {
+                      Point6D difference = block.sides.get(side).center.minus(rh.center);
                       float maxdivergence = max(new float[]{abs(difference.point[0]), abs(difference.point[1]), abs(difference.point[2]), abs(difference.point[3]), abs(difference.point[4]), abs(difference.point[5])});
                       if (maxdivergence < tolerance) {
                         // Rhombus already exists.
-                        block.sides.set(side, r);
+                        block.sides.set(side, rh);
                         // Rhombus must have one parent.
-                        Block neighbor = r.parents.get(0);
+                        Block neighbor = rh.parents.get(0);
                         block.next.add(neighbor);
-                        neighbor.next.set(neighbor.sides.indexOf(r), block);
-                        r.parents.add(block);
+                        neighbor.next.set(neighbor.sides.indexOf(rh), block);
+                        rh.parents.add(block);
                         rhombregistered = true;
                         break;
                       }
@@ -561,7 +577,7 @@ public class Quasicrystal {
                   }
                 }
 
-                for (Rhomb face : block.sides) {
+                /*for (Rhomb face : block.sides) {
                   PVector corner1_3D = new PVector(face.corner1.minus(fivedeew).dot(fivedee0), face.corner1.minus(fivedeew).dot(fivedee1), face.corner1.minus(fivedeew).dot(fivedee2));
                   PVector corner2_3D = new PVector(face.corner2.minus(fivedeew).dot(fivedee0), face.corner2.minus(fivedeew).dot(fivedee1), face.corner2.minus(fivedeew).dot(fivedee2));
                   PVector corner3_3D = new PVector(face.corner3.minus(fivedeew).dot(fivedee0), face.corner3.minus(fivedeew).dot(fivedee1), face.corner3.minus(fivedeew).dot(fivedee2));
@@ -572,7 +588,7 @@ public class Quasicrystal {
                   vertex(corner3_3D.x, corner3_3D.y, corner3_3D.z);
                   vertex(corner4_3D.x, corner4_3D.y, corner4_3D.z);
                   endShape(CLOSE);
-                }
+                }*/
               }
             }
           }
@@ -605,6 +621,144 @@ class Block {
     // variables, as well as for the "parents", representing "that hasn't
     // been generated yet". When something requests the dummy, it could 
     // then be generated in.
+  }
+}
+
+public class Point6D {
+  public float[] point = {0, 0, 0, 0, 0, 0};
+
+  public Point6D (float a, float b, float c, float d, float e, float f) {
+    point = new float[]{a, b, c, d, e, f};
+  }
+
+  public Point6D (float[] p) {
+    point = p;
+  }
+
+  public Point6D minus(Point6D p) {
+    return new Point6D(point[0]-p.point[0], point[1]-p.point[1], point[2]-p.point[2], point[3]-p.point[3], point[4]-p.point[4], point[5]-p.point[5]);
+  }
+
+  public Point6D plus(Point6D p) {
+    return new Point6D(point[0]+p.point[0], point[1]+p.point[1], point[2]+p.point[2], point[3]+p.point[3], point[4]+p.point[4], point[5]+p.point[5]);
+  }
+
+  public float dot(Point6D p) {
+    return point[0]*p.point[0]+point[1]*p.point[1]+point[2]*p.point[2]+point[3]*p.point[3]+point[4]*p.point[4]+point[5]*p.point[5];
+  }
+
+  public Point6D times(float scalar) {
+    return new Point6D(point[0]*scalar, point[1]*scalar, point[2]*scalar, point[3]*scalar, point[4]*scalar, point[5]*scalar);
+  }
+
+  public float length() {
+    return sqrt(point[0]*point[0]+point[1]*point[1]+point[2]*point[2]+point[3]*point[3]+point[4]*point[4]+point[5]*point[5]);
+  }
+
+  public Point6D normalized() {
+    float currentLength = length();
+    return new Point6D(point[0]/currentLength, point[1]/currentLength, point[2]/currentLength, point[3]/currentLength, point[4]/currentLength, point[5]/currentLength);
+  }
+
+  public Point6D ortho(Point6D p) {
+    // Returns the component which is orthogonal to p
+    Point6D pnorm = p.normalized();
+    float dotprod = dot(pnorm);
+    return new Point6D(point[0]-dotprod*pnorm.point[0], point[1]-dotprod*pnorm.point[1], point[2]-dotprod*pnorm.point[2], point[3]-dotprod*pnorm.point[3], point[4]-dotprod*pnorm.point[4], point[5]-dotprod*pnorm.point[5]);
+  }
+
+  public Point6D averageWith(ArrayList<Point6D> points) {
+    Point6D sum = new Point6D(new float[]{point[0], point[1], point[2], point[3], point[4], point[5]});
+    for (Point6D p : points) {
+      sum = sum.plus(p);
+    }
+    sum = sum.times(1.0/(points.size()+1));
+    return sum;
+  }
+
+  public Point6D copy() {
+    return new Point6D(new float[]{point[0], point[1], point[2], point[3], point[4], point[5]});
+  }
+  
+  public Point6D abs() {
+    return new Point6D(new float[]{Math.abs(point[0]), Math.abs(point[1]), Math.abs(point[2]), Math.abs(point[3]), Math.abs(point[4]), Math.abs(point[5])});
+  }
+}
+
+class Point2D implements Comparable<Point2D> {
+
+  public java.util.Comparator<Point2D> Lexico = new java.util.Comparator<Point2D>() {
+
+    @Override
+      public int compare(Point2D a, Point2D b) {
+      if (a.point[0] > b.point[0]) {
+        return 1;
+      }
+      if (a.point[0] < b.point[0]) {
+        return -1;
+      }
+      if (a.point[1] > b.point[1]) {
+        return 1;
+      }
+      if (a.point[1] < b.point[1]) {
+        return -1;
+      }
+      return 0;
+    }
+  };
+  public float[] point = {0, 0};
+
+
+  public Point2D(float x, float y) {
+    point = new float[]{x, y};
+  }
+
+  public Point2D(float[] p) {
+    point = new float[]{p[0], p[1]};
+  }
+
+  public float dot(Point2D p) {
+    return point[0]*p.point[0]+point[1]*p.point[1];
+  }
+
+  public Point2D minus(Point2D p) {
+    return new Point2D(point[0]-p.point[0], point[1]-p.point[1]);
+  }
+
+  public float length() {
+    return sqrt(point[0]*point[0]+point[1]*point[1]);
+  }
+
+  public int compareTo(Point2D p) {
+    if (point[0] > p.point[0]) {
+      return 1;
+    }
+    if (point[0] < p.point[0]) {
+      return -1;
+    }
+    if (point[1] > p.point[1]) {
+      return 1;
+    }
+    if (point[1] < p.point[1]) {
+      return -1;
+    }
+    return 0;
+  }
+
+  public float x() {
+    return point[0];
+  }
+
+  public float y() {
+    return point[1];
+  }
+
+  public Point2D orthoflip() {
+    return new Point2D(point[1], -point[0]);
+  }
+
+  public Point2D copy() {
+    return new Point2D(new float[]{point[0], point[1]});
   }
 }
 
