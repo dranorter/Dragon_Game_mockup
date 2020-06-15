@@ -374,7 +374,7 @@ class chunkNetwork {
   ArrayList<Chunk> chunkTypes;
 
   public chunkNetwork(Point6D initial_w, Point6D x, Point6D y, Point6D z) {
-    float searchradius = 5;// needs to be big enough to guarantee one fully-populated chunk
+    float searchradius = 15;// needs to be big enough to guarantee one fully-populated chunk
     println("Generating block lattice...");
     Quasicrystal lattice = new Quasicrystal(initial_w, x, y, z, searchradius);
     println("Generating chunk lattice...");
@@ -425,22 +425,24 @@ class chunkNetwork {
     println(str(classif1.size())+" unique chunks found.");
     println("Classifying blocks as if they were chunks...");
     ArrayList<Chunk> classif2 = classifyChunks(lattice, subblock_lattice);
-    println(str(classif1.size())+" unique blocks found.");
+    println(str(classif2.size())+" unique blocks found.");
 
     for (Chunk c : classif1) {
-      for (Chunk ci : c.instances) {
-        // For each instance, we want to print what chunk types its blocks are.
-        String types = str(classif1.indexOf(c));
-        for (Block b : ci.blocks) {
-          for (Chunk s : classif2) {
-            for (Chunk si : s.instances) {
-              if (max(si.center.minus(b.center).abs().point) < 0.01) {
-                types = types+" "+classif2.indexOf(s);
+      if (c.instances.size() > 1) {
+        for (Chunk ci : c.instances) {
+          // For each instance, we want to print what chunk types its blocks are.
+          String types = str(classif1.indexOf(c));
+          for (Block b : ci.blocks) {
+            for (Chunk s : classif2) {
+              for (Chunk si : s.instances) {
+                if (max(si.center.minus(b.center).abs().point) < 0.01) {
+                  types = types+" "+classif2.indexOf(s);
+                }
               }
             }
           }
+          println(types);
         }
-        println(types);
       }
     }
   }
@@ -448,92 +450,95 @@ class chunkNetwork {
 
 ArrayList<Chunk> classifyChunks(Quasicrystal chunk_lattice, Quasicrystal lattice) {
   ArrayList<Chunk> decorated_chunks = new ArrayList<Chunk>();
+  int progress_count = 0;
+  float last_progress_report = 0;
   for (Block chunk : (Iterable<Block>)(chunk_lattice.blocks)) {
+    progress_count++;
+    if (float(progress_count)/chunk_lattice.blocks.list.size()-last_progress_report > 0.105)
+      println("Decorating: "+float(progress_count)/chunk_lattice.blocks.list.size()+"% complete");
+    // TODO This loop is apparently the slow part
     boolean skipchunk = false;
     PointStore decorations = new PointStore(lattice.tolerance);
-    ArrayList<Point6D> corners = new ArrayList<Point6D>();
+    //ArrayList<Point6D> corners = new ArrayList<Point6D>();
+    VertexStore corner_store = new VertexStore(lattice.tolerance);
     Chunk decorated_chunk = new Chunk(chunk.center.copy());
     for (Rhomb face : chunk.sides) {
-      ArrayList<Point6D> iterate = new ArrayList<Point6D>();
-      iterate.add(face.corner1); 
-      iterate.add(face.corner2); 
-      iterate.add(face.corner3); 
-      iterate.add(face.corner4);
-      for (Point6D c : iterate) {
-        boolean found = false;
-        for (Point6D p : corners) {
-          if (max(p.minus(c).abs().point)<lattice.tolerance) {
-            found = true;
-            break;
-          }
-        }
-        if (!found) {
-          corners.add(c.copy());
-        }
-      }
+      corner_store.add(face.corner1); 
+      corner_store.add(face.corner2); 
+      corner_store.add(face.corner3); 
+      corner_store.add(face.corner4);
     }
     // Collected 6D corners of chunk. Now we have bounds w/in which to collect corners of blocks.
-    Point6D minp = corners.get(0).copy();
-    Point6D maxp = corners.get(0).copy();
-    for (Point6D c : corners) {
+    Point6D minp = corner_store.list.get(0).copy();
+    Point6D maxp = corner_store.list.get(0).copy();
+    for (Point6D c : (Iterable<Point6D>)(corner_store)) {
       for (int i = 0; i < 6; i++) {
         if (minp.point[i] > c.point[i]) minp.point[i] = c.point[i];
         if (maxp.point[i] < c.point[i]) maxp.point[i] = c.point[i];
       }
     }
     for (Block block : (Iterable<Block>)(lattice.blocks)) {
-      PointStore iterate = new PointStore(lattice.tolerance);
-      //iterate.add(block.center);
-      boolean maybe_skipchunk = false;
-      // Let's decorate with corners too. It's okay that we'll repeat them.
-      for (Rhomb r : block.sides) {
-        if (r.parents.size() != 2) {
-          // This block is too close to the edge of space.
-          // We need to skip the chunk if it turns out to be
-          // inside it.
-          maybe_skipchunk = true;
+      // Is the block anywhere near the chunk?
+      float dist = block.center.minus(chunk.center).length();
+      if (dist < 1.6*sqrt(6)) {// TODO is this cutoff ok?
+        PointStore iterate = new PointStore(lattice.tolerance);
+        //iterate.add(block.center);
+        boolean maybe_skipchunk = false;
+        // Let's decorate with corners too. It's okay that we'll repeat them.
+        for (Rhomb r : block.sides) {
+          if (r.parents.size() < 2) {
+            // This block is too close to the edge of space.
+            // We need to skip the chunk if it turns out to be
+            // inside it.
+            maybe_skipchunk = true;
+          } else if (r.parents.size() > 2) {
+          assert 0 == 1 : 
+            "Rhombus with too many parents";
+          }
+          iterate.add(r.corner1);
+          iterate.add(r.corner2);
+          iterate.add(r.corner3);
+          iterate.add(r.corner4);
+          iterate.add(r.center);
         }
-        iterate.add(r.corner1);
-        iterate.add(r.corner2);
-        iterate.add(r.corner3);
-        iterate.add(r.corner4);
-        iterate.add(r.center);
-      }
-      if (skipchunk) break;
-      boolean addblock = false;
-      for (Point6D p : (Iterable<Point6D>)(iterate)) {
-        boolean inside_chunk = true;
-        for (int i = 0; i < 6; i++) {
-          if (p.point[i] - minp.point[i] < -lattice.tolerance || p.point[i] - maxp.point[i] > lattice.tolerance) {
-            inside_chunk = false;
-            break;
+        if (skipchunk) break;
+        boolean addblock = false;
+        for (Point6D p : (Iterable<Point6D>)(iterate)) {
+          boolean inside_chunk = true;
+          for (int i = 0; i < 6; i++) {
+            if (p.point[i] - minp.point[i] < -lattice.tolerance || p.point[i] - maxp.point[i] > lattice.tolerance) {
+              inside_chunk = false;
+              break;
+            }
+          }
+          if (inside_chunk) {
+            decorations.add(p.copy());
+            // Also add block's center, even though it may be outside chunk
+            // TODO Adding this many decorations seems to greatly slow things down. maybe.
+            // Fix?
+            decorations.add(block.center.copy());
+            addblock = true;
+            if (maybe_skipchunk) {
+              skipchunk = true;
+              break;
+            }
           }
         }
-        if (inside_chunk) {
-          decorations.add(p.copy());
-          // Also add block's center, even though it may be outside chunk
-          // TODO Adding this many decorations seems to greatly slow things down. maybe.
-          // Fix?
-          decorations.add(block.center);
-          addblock = true;
-          if (maybe_skipchunk) {
-            skipchunk = true;
-            break;
-          }
-        }
+        if (addblock) decorated_chunk.blocks.add(block);
+        /*for (int i = 0; i < decorations.size() - 1; i++) {
+         for (int j = i+1; j < decorations.size(); j++) {
+         if (max(decorations.get(i).minus(decorations.get(j)).abs().point) < lattice.tolerance) {
+         decorations.remove(j);
+         j--;
+         }
+         }
+         }*/
       }
-      if (addblock) decorated_chunk.blocks.add(block);
-      /*for (int i = 0; i < decorations.size() - 1; i++) {
-       for (int j = i+1; j < decorations.size(); j++) {
-       if (max(decorations.get(i).minus(decorations.get(j)).abs().point) < lattice.tolerance) {
-       decorations.remove(j);
-       j--;
-       }
-       }
-       }*/
     }
     if (skipchunk) continue;
     // now subtract minp from everything
+    ArrayList<Point6D> corners = new ArrayList<Point6D>();
+    for (Point6D p : (Iterable<Point6D>)(corner_store)) corners.add(p);
     for (int i = 0; i < corners.size(); i++) corners.set(i, corners.get(i).minus(minp));
     for (int i = 0; i < decorations.list.size(); i++) decorations.list.set(i, decorations.list.get(i).minus(minp));
     for (Point6D p : decorations.list) {
@@ -542,12 +547,8 @@ ArrayList<Chunk> classifyChunks(Quasicrystal chunk_lattice, Quasicrystal lattice
     decorated_chunk.corners = corners;
     decorated_chunks.add(decorated_chunk);
   }
-  println("Decoration stage of classification completed.");
-  // TODO I used to do various transformations (rotations etc) to check for "equivalent" chunks.
-  // I stopped because actually I'll need the original orientation (up to translation) when I
-  // generate the grid. However, looking through all those unique chunks is making this stage
-  // extremely slow! Way slower than generating the grid was in the first place!
-  ArrayList<Chunk> unique_chunks = new ArrayList<Chunk>(); //<>//
+  println("Decoration stage completed. Classifying "+decorated_chunks.size()+" chunks.");
+  ArrayList<Chunk> unique_chunks = new ArrayList<Chunk>();
   FakeChunkStore chunk_hash = new FakeChunkStore();
   for (Chunk c : decorated_chunks) {
     boolean found = false;
@@ -650,8 +651,8 @@ class FakeChunkStore extends Point6DStore<Chunk> {
     }
     list.add(value);
   }
-  
-    ArrayList<Chunk> getAll(Point6D key) {
+
+  ArrayList<Chunk> getAll(Point6D key) {
     // This altered "get" will return all matches rather than the first (and theoretically only) match.
     ArrayList<Chunk> matches = new ArrayList<Chunk>();
     ArrayList<Float>[] hits = new ArrayList[]{new ArrayList<Float>(), new ArrayList<Float>(), new ArrayList<Float>(), new ArrayList<Float>(), new ArrayList<Float>(), new ArrayList<Float>()};
@@ -692,7 +693,7 @@ class FakeChunkStore extends Point6DStore<Chunk> {
     }
     return(matches);
   }
-  
+
   ArrayList<Chunk> getAllSimilar(Chunk c) {
     return getAll(location(c));
   }
