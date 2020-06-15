@@ -95,36 +95,44 @@ int rotateColor(int c) {
 }
 
 void setupRender() {
-  for (Block block : lattice.blocks) {
-    for (Rhomb face : block.sides) {
-      /* TODO I'm repeating calculations here; the block only has a few vertices, but each
-       vertex has several rhombuses. Ideally what I would do is have a Vertex object which 
-       stores the 3D calculation, so that it need only be computed once for all adjacent
-       vertices. */
-      face.corner1_3D = new PVector(face.corner1.minus(lattice.fivedeew).dot(lattice.fivedee0), face.corner1.minus(lattice.fivedeew).dot(lattice.fivedee1), face.corner1.minus(lattice.fivedeew).dot(lattice.fivedee2));
-      face.corner2_3D = new PVector(face.corner2.minus(lattice.fivedeew).dot(lattice.fivedee0), face.corner2.minus(lattice.fivedeew).dot(lattice.fivedee1), face.corner2.minus(lattice.fivedeew).dot(lattice.fivedee2));
-      face.corner3_3D = new PVector(face.corner3.minus(lattice.fivedeew).dot(lattice.fivedee0), face.corner3.minus(lattice.fivedeew).dot(lattice.fivedee1), face.corner3.minus(lattice.fivedeew).dot(lattice.fivedee2));
-      face.corner4_3D = new PVector(face.corner4.minus(lattice.fivedeew).dot(lattice.fivedee0), face.corner4.minus(lattice.fivedeew).dot(lattice.fivedee1), face.corner4.minus(lattice.fivedeew).dot(lattice.fivedee2));
-      face.center_3D = new PVector(face.center.minus(lattice.fivedeew).dot(lattice.fivedee0), face.center.minus(lattice.fivedeew).dot(lattice.fivedee1), face.center.minus(lattice.fivedeew).dot(lattice.fivedee2));
-    }
+  for (Object o : lattice.cells) {
+    Vertex v = (Vertex)(o);
+    v.location_3D = new PVector(v.minus(lattice.fivedeew).dot(lattice.fivedee0), v.minus(lattice.fivedeew).dot(lattice.fivedee1), v.minus(lattice.fivedeew).dot(lattice.fivedee2));
   }
+  for (Object o : lattice.rhombs) {
+    Rhomb r = (Rhomb)(o);
+    r.center_3D = new PVector(r.center.minus(lattice.fivedeew).dot(lattice.fivedee0), r.center.minus(lattice.fivedeew).dot(lattice.fivedee1), r.center.minus(lattice.fivedeew).dot(lattice.fivedee2));
+  }
+  /*for (Block block : lattice.blocks) {
+   for (Rhomb face : block.sides) {
+   face.corner1_3D = new PVector(face.corner1.minus(lattice.fivedeew).dot(lattice.fivedee0), face.corner1.minus(lattice.fivedeew).dot(lattice.fivedee1), face.corner1.minus(lattice.fivedeew).dot(lattice.fivedee2));
+   face.corner2_3D = new PVector(face.corner2.minus(lattice.fivedeew).dot(lattice.fivedee0), face.corner2.minus(lattice.fivedeew).dot(lattice.fivedee1), face.corner2.minus(lattice.fivedeew).dot(lattice.fivedee2));
+   face.corner3_3D = new PVector(face.corner3.minus(lattice.fivedeew).dot(lattice.fivedee0), face.corner3.minus(lattice.fivedeew).dot(lattice.fivedee1), face.corner3.minus(lattice.fivedeew).dot(lattice.fivedee2));
+   face.corner4_3D = new PVector(face.corner4.minus(lattice.fivedeew).dot(lattice.fivedee0), face.corner4.minus(lattice.fivedeew).dot(lattice.fivedee1), face.corner4.minus(lattice.fivedeew).dot(lattice.fivedee2));
+   face.center_3D = new PVector(face.center.minus(lattice.fivedeew).dot(lattice.fivedee0), face.center.minus(lattice.fivedeew).dot(lattice.fivedee1), face.center.minus(lattice.fivedeew).dot(lattice.fivedee2));
+   }
+   }*/
   int selection;
   for (int loopvar = 0; loopvar < 5; loopvar++) {
     selection = floor(random(lattice.blocks.size()));
-    lattice.blocks.get(selection).value = ceil(random(0, 20));
+    lattice.blocks.list.get(selection).value = ceil(random(0, 20));
   }
-  for (Block chunk : chunk_lattice.blocks) {
-    for (Rhomb face : chunk.sides) {
-      face.corner1_3D = new PVector(face.corner1.minus(lattice.fivedeew).dot(lattice.fivedee0), face.corner1.minus(lattice.fivedeew).dot(lattice.fivedee1), face.corner1.minus(lattice.fivedeew).dot(lattice.fivedee2));
-      face.corner2_3D = new PVector(face.corner2.minus(lattice.fivedeew).dot(lattice.fivedee0), face.corner2.minus(lattice.fivedeew).dot(lattice.fivedee1), face.corner2.minus(lattice.fivedeew).dot(lattice.fivedee2));
-      face.corner3_3D = new PVector(face.corner3.minus(lattice.fivedeew).dot(lattice.fivedee0), face.corner3.minus(lattice.fivedeew).dot(lattice.fivedee1), face.corner3.minus(lattice.fivedeew).dot(lattice.fivedee2));
-      face.corner4_3D = new PVector(face.corner4.minus(lattice.fivedeew).dot(lattice.fivedee0), face.corner4.minus(lattice.fivedeew).dot(lattice.fivedee1), face.corner4.minus(lattice.fivedeew).dot(lattice.fivedee2));
-      face.center_3D = new PVector(face.center.minus(lattice.fivedeew).dot(lattice.fivedee0), face.center.minus(lattice.fivedeew).dot(lattice.fivedee1), face.center.minus(lattice.fivedeew).dot(lattice.fivedee2));
-    }
+  for (Object o : lattice.cells) {
+    Vertex v = (Vertex)(o);
+    v.location_3D = new PVector(v.minus(lattice.fivedeew).dot(lattice.fivedee0), v.minus(lattice.fivedeew).dot(lattice.fivedee1), v.minus(lattice.fivedeew).dot(lattice.fivedee2));
   }
+  /*for (Block chunk : chunk_lattice.blocks) {
+   for (Rhomb face : chunk.sides) {
+   face.corner1_3D = new PVector(face.corner1.minus(lattice.fivedeew).dot(lattice.fivedee0), face.corner1.minus(lattice.fivedeew).dot(lattice.fivedee1), face.corner1.minus(lattice.fivedeew).dot(lattice.fivedee2));
+   face.corner2_3D = new PVector(face.corner2.minus(lattice.fivedeew).dot(lattice.fivedee0), face.corner2.minus(lattice.fivedeew).dot(lattice.fivedee1), face.corner2.minus(lattice.fivedeew).dot(lattice.fivedee2));
+   face.corner3_3D = new PVector(face.corner3.minus(lattice.fivedeew).dot(lattice.fivedee0), face.corner3.minus(lattice.fivedeew).dot(lattice.fivedee1), face.corner3.minus(lattice.fivedeew).dot(lattice.fivedee2));
+   face.corner4_3D = new PVector(face.corner4.minus(lattice.fivedeew).dot(lattice.fivedee0), face.corner4.minus(lattice.fivedeew).dot(lattice.fivedee1), face.corner4.minus(lattice.fivedeew).dot(lattice.fivedee2));
+   face.center_3D = new PVector(face.center.minus(lattice.fivedeew).dot(lattice.fivedee0), face.center.minus(lattice.fivedeew).dot(lattice.fivedee1), face.center.minus(lattice.fivedeew).dot(lattice.fivedee2));
+   }
+   }*/
   for (int loopvar = 0; loopvar < 3; loopvar++) {
     selection = floor(random(chunk_lattice.blocks.size()));
-    chunk_lattice.blocks.get(selection).value = ceil(random(0, 20));
+    chunk_lattice.blocks.list.get(selection).value = ceil(random(0, 20));
   }
 
 
@@ -137,7 +145,7 @@ void render() {
   }
   background(0, 100, 0);
   ArrayList<Rhomb> pointedAt = new ArrayList<Rhomb>();
-  for (Block block : lattice.blocks) {
+  for (Block block : (Iterable<Block>)(lattice.blocks)) {
     if (block.value > 0) {
       for (Rhomb face : block.sides) {
         boolean hasair = true;
@@ -156,10 +164,10 @@ void render() {
           //noStroke();
           fill(block.value*10, block.value*5, 255-block.value*10);
           beginShape();
-          vertex(face.corner1_3D.x, face.corner1_3D.y, face.corner1_3D.z);
-          vertex(face.corner2_3D.x, face.corner2_3D.y, face.corner2_3D.z);
-          vertex(face.corner4_3D.x, face.corner4_3D.y, face.corner4_3D.z);
-          vertex(face.corner3_3D.x, face.corner3_3D.y, face.corner3_3D.z);
+          vertex(face.corner1.location_3D.x, face.corner1.location_3D.y, face.corner1.location_3D.z);
+          vertex(face.corner2.location_3D.x, face.corner2.location_3D.y, face.corner2.location_3D.z);
+          vertex(face.corner4.location_3D.x, face.corner4.location_3D.y, face.corner4.location_3D.z);
+          vertex(face.corner3.location_3D.x, face.corner3.location_3D.y, face.corner3.location_3D.z);
           endShape(CLOSE);
         }
       }
@@ -192,19 +200,19 @@ void render() {
       noFill();
       for (Rhomb face : empty.sides) {
         beginShape();
-        vertex(face.corner1_3D.x, face.corner1_3D.y, face.corner1_3D.z);
-        vertex(face.corner2_3D.x, face.corner2_3D.y, face.corner2_3D.z);
-        vertex(face.corner4_3D.x, face.corner4_3D.y, face.corner4_3D.z);
-        vertex(face.corner3_3D.x, face.corner3_3D.y, face.corner3_3D.z);
+        vertex(face.corner1.location_3D.x, face.corner1.location_3D.y, face.corner1.location_3D.z);
+        vertex(face.corner2.location_3D.x, face.corner2.location_3D.y, face.corner2.location_3D.z);
+        vertex(face.corner4.location_3D.x, face.corner4.location_3D.y, face.corner4.location_3D.z);
+        vertex(face.corner3.location_3D.x, face.corner3.location_3D.y, face.corner3.location_3D.z);
         endShape(CLOSE);
       }
       stroke(0, 255, 0);
       fill(255-(255-block.value*25)*0.8, 255-(255-block.value*10)*0.8, 255-block.value*25*0.8);
       beginShape();
-      vertex(closest.corner1_3D.x, closest.corner1_3D.y, closest.corner1_3D.z);
-      vertex(closest.corner2_3D.x, closest.corner2_3D.y, closest.corner2_3D.z);
-      vertex(closest.corner4_3D.x, closest.corner4_3D.y, closest.corner4_3D.z);
-      vertex(closest.corner3_3D.x, closest.corner3_3D.y, closest.corner3_3D.z);
+      vertex(closest.corner1.location_3D.x, closest.corner1.location_3D.y, closest.corner1.location_3D.z);
+      vertex(closest.corner2.location_3D.x, closest.corner2.location_3D.y, closest.corner2.location_3D.z);
+      vertex(closest.corner4.location_3D.x, closest.corner4.location_3D.y, closest.corner4.location_3D.z);
+      vertex(closest.corner3.location_3D.x, closest.corner3.location_3D.y, closest.corner3.location_3D.z);
       endShape(CLOSE);
     } else {
       stroke(255, 255, 0);
@@ -215,23 +223,23 @@ void render() {
         //println(block.center.point);
       }
       beginShape();
-      vertex(closest.corner1_3D.x, closest.corner1_3D.y, closest.corner1_3D.z);
-      vertex(closest.corner2_3D.x, closest.corner2_3D.y, closest.corner2_3D.z);
-      vertex(closest.corner4_3D.x, closest.corner4_3D.y, closest.corner4_3D.z);
-      vertex(closest.corner3_3D.x, closest.corner3_3D.y, closest.corner3_3D.z);
+      vertex(closest.corner1.location_3D.x, closest.corner1.location_3D.y, closest.corner1.location_3D.z);
+      vertex(closest.corner2.location_3D.x, closest.corner2.location_3D.y, closest.corner2.location_3D.z);
+      vertex(closest.corner4.location_3D.x, closest.corner4.location_3D.y, closest.corner4.location_3D.z);
+      vertex(closest.corner3.location_3D.x, closest.corner3.location_3D.y, closest.corner3.location_3D.z);
       endShape(CLOSE);
     }
   }
-  for (Block b : chunk_lattice.blocks) {
+  for (Block b : (Iterable<Block>)(chunk_lattice.blocks)) {
     if (b.value > 0) {
       for (Rhomb r : b.sides) {
         noFill();
         stroke(255, 0, 255);
         beginShape();
-        vertex(r.corner1_3D.x, r.corner1_3D.y, r.corner1_3D.z);
-        vertex(r.corner2_3D.x, r.corner2_3D.y, r.corner2_3D.z);
-        vertex(r.corner4_3D.x, r.corner4_3D.y, r.corner4_3D.z);
-        vertex(r.corner3_3D.x, r.corner3_3D.y, r.corner3_3D.z);
+        vertex(r.corner1.location_3D.x, r.corner1.location_3D.y, r.corner1.location_3D.z);
+        vertex(r.corner2.location_3D.x, r.corner2.location_3D.y, r.corner2.location_3D.z);
+        vertex(r.corner4.location_3D.x, r.corner4.location_3D.y, r.corner4.location_3D.z);
+        vertex(r.corner3.location_3D.x, r.corner3.location_3D.y, r.corner3.location_3D.z);
         endShape(CLOSE);
       }
     }
@@ -241,10 +249,10 @@ void render() {
 
 boolean cameraPoint(Rhomb face) {
   // Use camera as origin
-  PVector c1 = face.corner1_3D.copy().sub(cam.position);
-  PVector c2 = face.corner2_3D.copy().sub(cam.position);
-  PVector c3 = face.corner3_3D.copy().sub(cam.position);
-  PVector c4 = face.corner4_3D.copy().sub(cam.position);
+  PVector c1 = face.corner1.location_3D.copy().sub(cam.position);
+  PVector c2 = face.corner2.location_3D.copy().sub(cam.position);
+  PVector c3 = face.corner3.location_3D.copy().sub(cam.position);
+  PVector c4 = face.corner4.location_3D.copy().sub(cam.position);
   float c1f = cam.forward.dot(c1);
   float c2f = cam.forward.dot(c2);
   float c3f = cam.forward.dot(c3);
@@ -333,8 +341,8 @@ void generate() {
   //Point6D y = new Point6D(new float[]{0, 1, 0, 0, 0, 0});
   //Point6D z = new Point6D(new float[]{0, 0, 1, 0, 0, 0});
   //Point6D w = new Point6D(new float[]{0, 0, 0, 0, 0, 0});
-  float rad = 12;//12;
-  float chunk_ratio = 2;
+  //float rad = 12;//12;
+  //float chunk_ratio = 2;
 
   chunkNetwork cn = new chunkNetwork(w, x, y, z);
 
@@ -366,56 +374,85 @@ class chunkNetwork {
   ArrayList<Chunk> chunkTypes;
 
   public chunkNetwork(Point6D initial_w, Point6D x, Point6D y, Point6D z) {
-    float searchradius = 6;// needs to be big enough to guarantee one fully-populated chunk
-    Quasicrystal lattice = new Quasicrystal(initial_w, x, y, z, 6);
+    float searchradius = 5;// needs to be big enough to guarantee one fully-populated chunk
+    println("Generating block lattice...");
+    Quasicrystal lattice = new Quasicrystal(initial_w, x, y, z, searchradius);
+    println("Generating chunk lattice...");
     Quasicrystal chunk_lattice = new Quasicrystal(initial_w.times(1.0/chunk_ratio), x.times(1.0/chunk_ratio), y.times(1.0/chunk_ratio), z.times(1.0/chunk_ratio), searchradius*(1.0/chunk_ratio));
+    println("Generating lattice to classify blocks as if they were chunks...");
     Quasicrystal subblock_lattice = new Quasicrystal(initial_w.times(chunk_ratio), x.times(chunk_ratio), y.times(chunk_ratio), z.times(chunk_ratio), searchradius*(chunk_ratio));
-    
+
     // Scale everything in chunk_lattice back up
 
     chunk_lattice.fivedeex = chunk_lattice.fivedeex.times(chunk_ratio);
     chunk_lattice.fivedeey = chunk_lattice.fivedeey.times(chunk_ratio);
     chunk_lattice.fivedeez = chunk_lattice.fivedeez.times(chunk_ratio);
     chunk_lattice.fivedeew = chunk_lattice.fivedeew.times(chunk_ratio);
-    for (Rhomb rhomb : chunk_lattice.rhombs) {
+    // TODO Why do I have to cast here? Fix it so that I don't
+    for (Object o : chunk_lattice.rhombs) {
+      Rhomb rhomb = (Rhomb)o;
       rhomb.center = rhomb.center.times(chunk_ratio);
       rhomb.corner1 = rhomb.corner1.times(chunk_ratio);
       rhomb.corner2 = rhomb.corner2.times(chunk_ratio);
       rhomb.corner3 = rhomb.corner3.times(chunk_ratio);
       rhomb.corner4 = rhomb.corner4.times(chunk_ratio);
     }
-    for (Block b : chunk_lattice.blocks) {
+    for (Block b : (Iterable<Block>)(chunk_lattice.blocks)) {
       b.center = b.center.times(chunk_ratio);
     }
-    
+
     // And everything in subblock_lattice down
-    
+
     subblock_lattice.fivedeex = subblock_lattice.fivedeex.times(1.0/chunk_ratio);
     subblock_lattice.fivedeey = subblock_lattice.fivedeey.times(1.0/chunk_ratio);
     subblock_lattice.fivedeez = subblock_lattice.fivedeez.times(1.0/chunk_ratio);
     subblock_lattice.fivedeew = subblock_lattice.fivedeew.times(1.0/chunk_ratio);
-    for (Rhomb rhomb : subblock_lattice.rhombs) {
+    for (Object o : subblock_lattice.rhombs) {
+      Rhomb rhomb = (Rhomb)o;
       rhomb.center = rhomb.center.times(1.0/chunk_ratio);
       rhomb.corner1 = rhomb.corner1.times(1.0/chunk_ratio);
       rhomb.corner2 = rhomb.corner2.times(1.0/chunk_ratio);
       rhomb.corner3 = rhomb.corner3.times(1.0/chunk_ratio);
       rhomb.corner4 = rhomb.corner4.times(1.0/chunk_ratio);
     }
-    for (Block b : subblock_lattice.blocks) {
+    for (Block b : (Iterable<Block>)(subblock_lattice.blocks)) {
       b.center = b.center.times(1.0/chunk_ratio);
     }
 
-    classifyChunks(chunk_lattice,lattice);
-    classifyChunks(lattice,subblock_lattice);
+    println(str(chunk_lattice.blocks.list.size())+" chunks, "+str(lattice.blocks.list.size())+" blocks, "+str(subblock_lattice.blocks.list.size())+" sub-blocks found.");
+    println("Classifying chunks...");
+    ArrayList<Chunk> classif1 = classifyChunks(chunk_lattice, lattice);
+    println(str(classif1.size())+" unique chunks found.");
+    println("Classifying blocks as if they were chunks...");
+    ArrayList<Chunk> classif2 = classifyChunks(lattice, subblock_lattice);
+    println(str(classif1.size())+" unique blocks found.");
+
+    for (Chunk c : classif1) {
+      for (Chunk ci : c.instances) {
+        // For each instance, we want to print what chunk types its blocks are.
+        String types = str(classif1.indexOf(c));
+        for (Block b : ci.blocks) {
+          for (Chunk s : classif2) {
+            for (Chunk si : s.instances) {
+              if (max(si.center.minus(b.center).abs().point) < 0.01) {
+                types = types+" "+classif2.indexOf(s);
+              }
+            }
+          }
+        }
+        println(types);
+      }
+    }
   }
 }
 
-void classifyChunks(Quasicrystal chunk_lattice, Quasicrystal lattice) {
+ArrayList<Chunk> classifyChunks(Quasicrystal chunk_lattice, Quasicrystal lattice) {
   ArrayList<Chunk> decorated_chunks = new ArrayList<Chunk>();
-  for (Block chunk : chunk_lattice.blocks) {
+  for (Block chunk : (Iterable<Block>)(chunk_lattice.blocks)) {
     boolean skipchunk = false;
-    ArrayList<Point6D> decorations = new ArrayList<Point6D>();
+    PointStore decorations = new PointStore(lattice.tolerance);
     ArrayList<Point6D> corners = new ArrayList<Point6D>();
+    Chunk decorated_chunk = new Chunk(chunk.center.copy());
     for (Rhomb face : chunk.sides) {
       ArrayList<Point6D> iterate = new ArrayList<Point6D>();
       iterate.add(face.corner1); 
@@ -444,9 +481,9 @@ void classifyChunks(Quasicrystal chunk_lattice, Quasicrystal lattice) {
         if (maxp.point[i] < c.point[i]) maxp.point[i] = c.point[i];
       }
     }
-    for (Block block : lattice.blocks) {
-      ArrayList<Point6D> iterate = new ArrayList<Point6D>();
-      iterate.add(block.center);
+    for (Block block : (Iterable<Block>)(lattice.blocks)) {
+      PointStore iterate = new PointStore(lattice.tolerance);
+      //iterate.add(block.center);
       boolean maybe_skipchunk = false;
       // Let's decorate with corners too. It's okay that we'll repeat them.
       for (Rhomb r : block.sides) {
@@ -460,166 +497,203 @@ void classifyChunks(Quasicrystal chunk_lattice, Quasicrystal lattice) {
         iterate.add(r.corner2);
         iterate.add(r.corner3);
         iterate.add(r.corner4);
+        iterate.add(r.center);
       }
       if (skipchunk) break;
-      for (Point6D p : iterate) {
+      boolean addblock = false;
+      for (Point6D p : (Iterable<Point6D>)(iterate)) {
         boolean inside_chunk = true;
         for (int i = 0; i < 6; i++) {
-          if (p.point[i] < minp.point[i] || p.point[i] > maxp.point[i]) {
+          if (p.point[i] - minp.point[i] < -lattice.tolerance || p.point[i] - maxp.point[i] > lattice.tolerance) {
             inside_chunk = false;
             break;
           }
         }
         if (inside_chunk) {
           decorations.add(p.copy());
+          // Also add block's center, even though it may be outside chunk
+          // TODO Adding this many decorations seems to greatly slow things down. maybe.
+          // Fix?
+          decorations.add(block.center);
+          addblock = true;
           if (maybe_skipchunk) {
             skipchunk = true;
             break;
           }
         }
       }
-      for (int i = 0; i < decorations.size() - 1; i++) {
-        for (int j = i+1; j < decorations.size(); j++) {
-          if (max(decorations.get(i).minus(decorations.get(j)).abs().point) < lattice.tolerance) {
-            decorations.remove(j);
-            j--;
-          }
-        }
-      }
+      if (addblock) decorated_chunk.blocks.add(block);
+      /*for (int i = 0; i < decorations.size() - 1; i++) {
+       for (int j = i+1; j < decorations.size(); j++) {
+       if (max(decorations.get(i).minus(decorations.get(j)).abs().point) < lattice.tolerance) {
+       decorations.remove(j);
+       j--;
+       }
+       }
+       }*/
     }
     if (skipchunk) continue;
     // now subtract minp from everything
     for (int i = 0; i < corners.size(); i++) corners.set(i, corners.get(i).minus(minp));
-    for (int i = 0; i < decorations.size(); i++) decorations.set(i, decorations.get(i).minus(minp));
-    Chunk decorated_chunk = new Chunk(chunk.center.copy());
-    decorated_chunk.block_centers = decorations;
+    for (int i = 0; i < decorations.list.size(); i++) decorations.list.set(i, decorations.list.get(i).minus(minp));
+    for (Point6D p : decorations.list) {
+      decorated_chunk.block_centers.add(p);
+    }
     decorated_chunk.corners = corners;
     decorated_chunks.add(decorated_chunk);
   }
-  println("Number of chunks: "+decorated_chunks.size());
-  ArrayList<Chunk> unique_chunks = new ArrayList<Chunk>();
+  println("Decoration stage of classification completed.");
+  // TODO I used to do various transformations (rotations etc) to check for "equivalent" chunks.
+  // I stopped because actually I'll need the original orientation (up to translation) when I
+  // generate the grid. However, looking through all those unique chunks is making this stage
+  // extremely slow! Way slower than generating the grid was in the first place!
+  ArrayList<Chunk> unique_chunks = new ArrayList<Chunk>(); //<>//
+  FakeChunkStore chunk_hash = new FakeChunkStore();
   for (Chunk c : decorated_chunks) {
-    Point6D nonzero = new Point6D(0, 0, 0, 0, 0, 0);
-    int num_nonzero = 0;
-    for (int i = 0; i < 6; i++) {
-      for (Point6D p : c.corners) {
-        if (p.point[i] != 0) {
-          nonzero.point[i] = 1;
-          num_nonzero += 1;
-          break;
-        }
-      }
-      if (nonzero.point[i] > 0) continue;
-      for (Point6D p : c.block_centers) {
-        if (p.point[i] != 0) {
-          nonzero.point[i] = 1;
-          num_nonzero += 1;
-          break;
-        }
-      }
-    }
-    //TODO Remove this assertion
-  assert num_nonzero == 3 : 
-    "Oh, actually sometimes more than 3";
-    for (int i = 0; i < num_nonzero; i++) {
-      int zi = 0;
-      while (nonzero.point[zi] > 0) zi++;
-      int nzi = zi;
-      while (nzi < 6 && nonzero.point[nzi] == 0) nzi++;
-      if (nzi < 6) {
-        for (Point6D p : c.corners) {
-          p.point[zi] = p.point[nzi];
-          p.point[nzi] = 0;
-        }
-        for (Point6D p : c.block_centers) {
-          p.point[zi] = p.point[nzi];
-          p.point[nzi] = 0;
-        }
-        nonzero.point[zi] = nonzero.point[nzi];
-        nonzero.point[nzi] = 0;
-      }
-    }
     boolean found = false;
-    for (int perm = 0; perm < 6; perm++) {
-      for (Chunk uc : unique_chunks) {
-        if (c.block_centers.size() == uc.block_centers.size()) {
-          boolean corners_same = true;
-          for (Point6D corner : c.corners) {
-            boolean found_corner = false;
-            for (Point6D uqcorner : uc.corners) {
-              if (max(corner.minus(uqcorner).point)<lattice.tolerance) {
-                found_corner = true;
-                break;
-              }
-            }
-            if (!found_corner) {
-              corners_same = false;
+    ArrayList<Chunk> hash_matches = chunk_hash.getAllSimilar(c);
+    for (Chunk uc : hash_matches) {
+      if (c.block_centers.size() == uc.block_centers.size()) {
+        boolean corners_same = true;
+        for (Point6D corner : c.corners) {
+          boolean found_corner = false;
+          for (Point6D uqcorner : uc.corners) {
+            if (max(corner.minus(uqcorner).point)<lattice.tolerance) {
+              found_corner = true;
               break;
             }
           }
-          if (corners_same) {
-            boolean decs_same = true;
-            for (Point6D dec : c.block_centers) {
-              boolean dec_found = false;
-              for (Point6D uqdec : uc.block_centers) {
-                if (max(dec.minus(uqdec).point)<lattice.tolerance) {
-                  dec_found = true;
-                  break;
-                }
-              }
-              if (!dec_found) {
-                decs_same = false;
-                break;
-              }
-            }
-            if (decs_same) {
-              found = true;
+          if (!found_corner) {
+            corners_same = false;
+            break;
+          }
+        }
+        if (corners_same) {
+          boolean decs_same = true;
+          for (Point6D dec : (Iterable<Point6D>)(c.block_centers)) {
+            boolean dec_found = uc.block_centers.contains(dec);
+            /*for (Point6D uqdec : uc.block_centers) {
+             if (max(dec.minus(uqdec).point)<lattice.tolerance) {
+             dec_found = true;
+             break;
+             }
+             }*/
+            if (!dec_found) {
+              decs_same = false;
               break;
             }
           }
-        }
-      }
-      // Now permute for next loop-through
-      if (perm%2 == 0) {
-        // On even runs, permute first two values.
-        for (Point6D p : c.corners) {
-          float temp = p.point[0];
-          p.point[0] = p.point[1];
-          p.point[1] = temp;
-        }
-        for (Point6D p : c.block_centers) {
-          float temp = p.point[0];
-          p.point[0] = p.point[1];
-          p.point[1] = temp;
-        }
-      } else {
-        // On odd runs, permute 2nd with 3rd
-        for (Point6D p : c.corners) {
-          float temp = p.point[1];
-          p.point[1] = p.point[2];
-          p.point[2] = temp;
-        }
-        for (Point6D p : c.block_centers) {
-          float temp = p.point[1];
-          p.point[1] = p.point[2];
-          p.point[2] = temp;
+          if (decs_same) {
+            found = true;
+            uc.instances.add(c);
+            break;
+          }
         }
       }
     }
-    if (!found) unique_chunks.add(c);
+    if (!found) {
+      c.instances.add(c);
+      unique_chunks.add(c);
+      chunk_hash.add(c);
+    }
   }
-  println("Number of naively unique chunks: "+unique_chunks.size());
+  return unique_chunks;
 }
 
 class Chunk extends Block {
   int level;
-  ArrayList<Point6D> block_centers;
+  int type;
+  PointStore block_centers;
+  ArrayList<Block> blocks;
+  ArrayList<Chunk> instances;
   ArrayList<Point6D> corners;
 
   public Chunk(Point6D p) {
     super(p);
     level = 0;
-    block_centers = new ArrayList<Point6D>();
+    block_centers = new PointStore(0.01);
     corners = new ArrayList<Point6D>();
+    blocks = new ArrayList<Block>();
+    instances = new ArrayList<Chunk>();
+  }
+}
+
+class FakeChunkStore extends Point6DStore<Chunk> {
+  // Do not store chunks in this!! It's just being used
+  // to try and speed up my checking for duplicates elsewhere.
+  public FakeChunkStore() {
+    super(0.01);
+  }
+
+  Point6D location(Chunk c) {
+    Point6D loc = new Point6D(0, 0, 0, 0, 0, 0);
+    for (Point6D p : (Iterable<Point6D>)(c.block_centers)) {
+      loc = loc.plus(p.times(1.6180339887498948482));
+    }
+    for (Point6D p : c.corners) {
+      loc = loc.plus(p);
+    }
+    return loc;
+  }
+
+  // Making this public so that we can force "duplicate" additions
+  void definitelyAdd(Point6D key, Chunk value) {
+    for (int i = 0; i < 6; i++) {
+      ArrayList<Chunk> list_i = (ArrayList<Chunk>)(storage[i].get(key.point[i]));
+      if (list_i != null) {
+        list_i.add(value);
+      } else {
+        ArrayList<Chunk> initial_list_i = new ArrayList<Chunk>();
+        initial_list_i.add(value);
+        storage[i].put(key.point[i], initial_list_i);
+      }
+    }
+    list.add(value);
+  }
+  
+    ArrayList<Chunk> getAll(Point6D key) {
+    // This altered "get" will return all matches rather than the first (and theoretically only) match.
+    ArrayList<Chunk> matches = new ArrayList<Chunk>();
+    ArrayList<Float>[] hits = new ArrayList[]{new ArrayList<Float>(), new ArrayList<Float>(), new ArrayList<Float>(), new ArrayList<Float>(), new ArrayList<Float>(), new ArrayList<Float>()};
+    for (int i = 0; i < 6; i++) {
+      boolean came_up_empty = true;
+      for (java.util.Enumeration<Float> k = storage[i].keys(); k.hasMoreElements(); ) {
+        float nextkey = k.nextElement();
+        if (abs(nextkey - key.point[i]) < tolerance) {
+          hits[i].add(nextkey);
+          came_up_empty = false;
+        }
+      }
+      if (came_up_empty) {
+        // No need to do next dimension; unmatched in one means novel item.
+        break;
+      }
+    }
+    ArrayList<Integer> hitsize = new ArrayList<Integer>();
+    for (int i = 0; i < 6; i++) {
+      int sum = 0;
+      for (Float k : hits[i]) {
+        sum += ((ArrayList<Float>)(storage[i].get(k))).size();
+      }
+      hitsize.add(sum);
+    }
+    if (min(new int[]{hitsize.get(0), hitsize.get(1), hitsize.get(2), hitsize.get(3), hitsize.get(4), hitsize.get(5)}) == 0) {
+      // Item not present in storage.
+      return matches;
+    }
+    int i = hitsize.indexOf(min(new int[]{hitsize.get(0), hitsize.get(1), hitsize.get(2), hitsize.get(3), hitsize.get(4), hitsize.get(5)}));
+    for (Float k : hits[i]) {
+      ArrayList<Chunk> values = (ArrayList<Chunk>)storage[i].get(k);
+      for (Chunk fetched : values) {
+        if (equals(key, location(fetched))) {
+          matches.add(fetched);
+        }
+      }
+    }
+    return(matches);
+  }
+  
+  ArrayList<Chunk> getAllSimilar(Chunk c) {
+    return getAll(location(c));
   }
 }

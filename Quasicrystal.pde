@@ -22,9 +22,12 @@ public class Quasicrystal {
   Point6D fivedee1 = new Point6D(new float[]{0, 0, 0, 0, 0, 0});
   Point6D fivedee2 = new Point6D(new float[]{0, 0, 0, 0, 0, 0});
 
-  ArrayList<Point6D> cells = new ArrayList<Point6D>();
-  ArrayList<Rhomb> rhombs = new ArrayList<Rhomb>();
-  ArrayList<Block> blocks = new ArrayList<Block>();
+  VertexStore cells = new VertexStore(tolerance);
+  //ArrayList<Rhomb> rhombs = new ArrayList<Rhomb>();
+  RhombStore rhombs = new RhombStore(tolerance);
+  //ArrayList<Block> blocks = new ArrayList<Block>();
+  BlockStore blocks = new BlockStore(tolerance);
+  PointStore intersections = new PointStore(tolerance);
 
   public Quasicrystal(Point6D w, Point6D x, Point6D y, Point6D z, float r) {
     fivedeex = x;
@@ -86,8 +89,10 @@ public class Quasicrystal {
 
 
     // Clear out the arrays
-    cells = new ArrayList<Point6D>();
-    rhombs = new ArrayList<Rhomb>();
+    cells = new VertexStore(tolerance);
+    rhombs = new RhombStore(tolerance);
+  blocks = new BlockStore(tolerance);
+  intersections = new PointStore(tolerance);
 
     // Iterate over the dimension we hold constant
     for (int planeDim = 0; planeDim < 6; planeDim++) {
@@ -225,8 +230,8 @@ public class Quasicrystal {
 
         float[] dimstarts = {start0, start1, start2, start3, start4, start5};
         float[] dimends   = {end0, end1, end2, end3, end4, end5};
-        
-        
+
+
 
         println("Plane slices: "+(planeDim*16.6+(planeN-planestarts[planeDim])*16.6/(planeends[planeDim]-planestarts[planeDim]))+"%");
         //background((planeDim*20+(planeN-planestarts[planeDim])*20/(planeends[planeDim]-planestarts[planeDim]))*255);
@@ -328,6 +333,21 @@ public class Quasicrystal {
                   float dist = ((float(i)+0.5)-(enter[d]))/linevector[d];
                   dists.add(dist);
                   dims.add(d);
+                  // TODO I'm adding math here. Is this new storage system actually speeding anything up?
+                  // Theoretically I could be cleverer and only store the math done already 
+                  // (ie, store enter, linevector, planeDim, N, d, dist, and dim). On the other hand maybe
+                  // all math I'm doing here would get done later anyway? No - whenever j < N I think
+                  // I'm doing unneeded work.
+                  Point6D intersection = new Point6D(0,0,0,0,0,0);
+                  intersection.point[planeDim] = planeN;
+                  intersection.point[N] = dimN;
+                  intersection.point[d] = i+0.5;
+                  for (int j = 0; j < 6; j++) {
+                    if (j != planeDim && j != N && j != i) {
+                      intersection.point[j] = enter[j] + linevector[j]*dist;
+                    }
+                  }
+                  intersections.add(intersection);
                 }
               }
             }
@@ -369,36 +389,27 @@ public class Quasicrystal {
 
 
               // We step through with four cells; below vs. above the current plane, and to either side of the current line.
-              Point6D left_downCell = new Point6D(round(enter[0]), round(enter[1]), round(enter[2]), round(enter[3]), round(enter[4]), round(enter[5]));
+              Vertex left_downCell = new Vertex(round(enter[0]), round(enter[1]), round(enter[2]), round(enter[3]), round(enter[4]), round(enter[5]));
               // We have to add or subtract a bit to ensure we fall the desired direction for each starting cell. 
               left_downCell.point[N] = round(enter[N]+0.01);
               left_downCell.point[planeDim] = round(enter[planeDim]-0.01);
 
-              Point6D right_downCell = new Point6D(round(enter[0]), round(enter[1]), round(enter[2]), round(enter[3]), round(enter[4]), round(enter[5]));
+              Vertex right_downCell = new Vertex(round(enter[0]), round(enter[1]), round(enter[2]), round(enter[3]), round(enter[4]), round(enter[5]));
               right_downCell.point[N] = round(enter[N]-0.01);
               right_downCell.point[planeDim] = round(enter[planeDim]-0.01);
 
-              Point6D left_upCell = new Point6D(round(enter[0]), round(enter[1]), round(enter[2]), round(enter[3]), round(enter[4]), round(enter[5]));
+              Vertex left_upCell = new Vertex(round(enter[0]), round(enter[1]), round(enter[2]), round(enter[3]), round(enter[4]), round(enter[5]));
               left_upCell.point[N] = round(enter[N]+0.01);
               left_upCell.point[planeDim] = round(enter[planeDim]+0.01);
 
-              Point6D right_upCell = new Point6D(round(enter[0]), round(enter[1]), round(enter[2]), round(enter[3]), round(enter[4]), round(enter[5]));
+              Vertex right_upCell = new Vertex(round(enter[0]), round(enter[1]), round(enter[2]), round(enter[3]), round(enter[4]), round(enter[5]));
               right_upCell.point[N] = round(enter[N]-0.01);
               right_upCell.point[planeDim] = round(enter[planeDim]+0.01);
 
-
-              // TODO Would it be beneficial to weed out repetition in the
-              // list of cells? Cells don't track their parent rhombuses right
-              // now and I'm not sure they should; right now I basically
-              // don't use the cells ArrayList for anything.
-              // It would also allow me to cache the cells' 3D coordinates (that
-              // is, the 3D coordinates of each vertex) without repetition.
-              // The cells could be of a class that only allows integer coordinates,
-              // which would reduce risk of error.
-              cells.add(left_downCell);
-              cells.add(right_downCell);
-              cells.add(left_upCell);
-              cells.add(right_upCell);
+              left_downCell = cells.add(left_downCell);
+              right_downCell = cells.add(right_downCell);
+              left_upCell = cells.add(left_upCell);
+              right_upCell = cells.add(right_upCell);
 
               //println("generating cells... "+N*20+round((dimN-dimstarts[N])/(dimends[N]-dimstarts[N]))+"%");
 
@@ -444,10 +455,10 @@ public class Quasicrystal {
                 int dim = sorteddims[i];
                 int dir = enter[dim] < exit[dim] ? 1 : -1;
 
-                Point6D oldLeftDownCell = left_downCell;
-                Point6D oldRightDownCell = right_downCell;
-                Point6D oldLeftUpCell = left_upCell;
-                Point6D oldRightUpCell = right_upCell;
+                Vertex oldLeftDownCell = left_downCell;
+                Vertex oldRightDownCell = right_downCell;
+                Vertex oldLeftUpCell = left_upCell;
+                Vertex oldRightUpCell = right_upCell;
 
                 //TODO Floating point error could build up as I add and subtract integers here; could be better off using integers.
                 left_downCell = left_downCell.copy();
@@ -469,16 +480,10 @@ public class Quasicrystal {
                  println(left_upCell.minus(newintersection).length());
                  println(right_upCell.minus(newintersection).length());*/
 
-                // TODO Would it be beneficial to weed out repetition in the
-                // list of cells? Cells don't track their parent rhombuses right
-                // now and I'm not sure they should; right now I basically
-                // don't use the cells ArrayList for anything.
-                // I could be using cells to track intersections (ie, dists)
-                // and stop computing them all three times as I currently do.
-                //cells.add(left_downCell);
-                //cells.add(right_downCell);
-                //cells.add(left_upCell);
-                //cells.add(right_upCell);
+                left_downCell = cells.add(left_downCell);
+                right_downCell = cells.add(right_downCell);
+                left_upCell = cells.add(left_upCell);
+                right_upCell = cells.add(right_upCell);
 
                 // Our eight cell-centers define a parallelepiped (of course in 5D it's a cube). In dim N, the left cells 
                 // lie in the positive direction from the right. In planeDim, the up cells lie in the positive direction 
@@ -504,7 +509,7 @@ public class Quasicrystal {
                 // TODO would just provide nice next/prev distinction.
 
                 ArrayList<Point6D> the_others = new ArrayList<Point6D>();
-                the_others.add(left_upCell);// this is so many lines. how do i write it better
+                the_others.add(left_upCell);// TODO this is so many lines. how do i write it better
                 the_others.add(right_downCell);
                 the_others.add(right_upCell);
                 the_others.add(oldLeftDownCell);
@@ -521,13 +526,13 @@ public class Quasicrystal {
 
                 // I'm going to skip determination of prev and next for now, as well as skip properly 
                 // initializing axis1 and axis2 for the individual rhombuses.
-                
+
                 // TODO This part would be faster if I had the blocks
                 // in some sort of data structure so they could be
                 // found. non-exhaustively.
-                boolean blockregistered = false;
-                Block prev;
-                for (Block b : blocks) {
+                //boolean blockregistered = false;
+                Block prev = blocks.add(block);
+                /*for (Block b : (blocks)) {
                   Point6D difference = b.center.minus(block.center);
                   float maxdivergence = max(new float[]{abs(difference.point[0]), abs(difference.point[1]), abs(difference.point[2]), abs(difference.point[3]), abs(difference.point[4]), abs(difference.point[5])});
                   if (maxdivergence < tolerance) {
@@ -535,9 +540,10 @@ public class Quasicrystal {
                     prev = b;
                     break;
                   }
-                }
-                if (!blockregistered) {
-                  blocks.add(block);
+                }*/
+                if (prev == block) {
+                  // block was new; do setup
+                  //blocks.add(block);
                   // This ordering of the axes - (N, planeDim, dim) - will be used when interpreting prev and next.
                   block.axes = new ArrayList<Integer>(java.util.Arrays.asList(new Integer[]{N, planeDim, dim}));
                   block.sides.add(new Rhomb(oldLeftDownCell.copy(), oldRightDownCell.copy(), oldLeftUpCell.copy(), oldRightUpCell.copy()));// old face
@@ -549,46 +555,61 @@ public class Quasicrystal {
                   for (int side = 0; side < block.sides.size(); side++) {
                     // I probably spend a whole lot of my time checking for duplicate rhombs.
                     // Should store them in a searchable way.
-                    boolean rhombregistered = false;
+                    //boolean rhombregistered = false;
                     // Rather than tracking direction and next vs. prev,
                     // for now I'm just going to rely on rhombs' ordering in "sides"
                     // lining up with neighboring blocks' ordering in "next".
-                    for (Rhomb rh : rhombs) {
-                      Point6D difference = block.sides.get(side).center.minus(rh.center);
-                      float maxdivergence = max(new float[]{abs(difference.point[0]), abs(difference.point[1]), abs(difference.point[2]), abs(difference.point[3]), abs(difference.point[4]), abs(difference.point[5])});
-                      if (maxdivergence < tolerance) {
-                        // Rhombus already exists.
-                        block.sides.set(side, rh);
-                        // Rhombus must have one parent.
-                        Block neighbor = rh.parents.get(0);
-                        block.next.add(neighbor);
-                        neighbor.next.set(neighbor.sides.indexOf(rh), block);
-                        rh.parents.add(block);
-                        rhombregistered = true;
-                        break;
-                      }
-                    }
-                    if (!rhombregistered) {
-                      rhombs.add(block.sides.get(side));
+                    Rhomb registered = rhombs.add(block.sides.get(side));
+                    if (registered != block.sides.get(side)) {
+                      // Rhomb already existed.
+                      block.sides.set(side, registered);
+                      // Rhombus must already have one parent.
+                      Block neighbor = registered.parents.get(0);
+                      block.next.add(neighbor);
+                      neighbor.next.set(neighbor.sides.indexOf(registered), block);
+                      registered.parents.add(block);
+                    } else {
+                      // New rhombus
                       // Keep lists even w/ null elements
                       block.next.add(null);
-                      block.sides.get(side).parents.add(block);
+                      registered.parents.add(block);
                     }
+                    /*for (Rhomb rh : rhombs) {
+                     Point6D difference = block.sides.get(side).center.minus(rh.center);
+                     float maxdivergence = max(new float[]{abs(difference.point[0]), abs(difference.point[1]), abs(difference.point[2]), abs(difference.point[3]), abs(difference.point[4]), abs(difference.point[5])});
+                     if (maxdivergence < tolerance) {
+                     // Rhombus already exists.
+                     block.sides.set(side, rh);
+                     // Rhombus must have one parent.
+                     Block neighbor = rh.parents.get(0);
+                     block.next.add(neighbor);
+                     neighbor.next.set(neighbor.sides.indexOf(rh), block);
+                     rh.parents.add(block);
+                     rhombregistered = true;
+                     break;
+                     }
+                     }
+                     if (!rhombregistered) {
+                     rhombs.add(block.sides.get(side));
+                     // Keep lists even w/ null elements
+                     block.next.add(null);
+                     block.sides.get(side).parents.add(block);
+                     }*/
                   }
                 }
 
                 /*for (Rhomb face : block.sides) {
-                  PVector corner1_3D = new PVector(face.corner1.minus(fivedeew).dot(fivedee0), face.corner1.minus(fivedeew).dot(fivedee1), face.corner1.minus(fivedeew).dot(fivedee2));
-                  PVector corner2_3D = new PVector(face.corner2.minus(fivedeew).dot(fivedee0), face.corner2.minus(fivedeew).dot(fivedee1), face.corner2.minus(fivedeew).dot(fivedee2));
-                  PVector corner3_3D = new PVector(face.corner3.minus(fivedeew).dot(fivedee0), face.corner3.minus(fivedeew).dot(fivedee1), face.corner3.minus(fivedeew).dot(fivedee2));
-                  PVector corner4_3D = new PVector(face.corner4.minus(fivedeew).dot(fivedee0), face.corner4.minus(fivedeew).dot(fivedee1), face.corner4.minus(fivedeew).dot(fivedee2));
-                  beginShape();
-                  vertex(corner1_3D.x, corner1_3D.y, corner1_3D.z);
-                  vertex(corner2_3D.x, corner2_3D.y, corner2_3D.z);
-                  vertex(corner3_3D.x, corner3_3D.y, corner3_3D.z);
-                  vertex(corner4_3D.x, corner4_3D.y, corner4_3D.z);
-                  endShape(CLOSE);
-                }*/
+                 PVector corner1_3D = new PVector(face.corner1.minus(fivedeew).dot(fivedee0), face.corner1.minus(fivedeew).dot(fivedee1), face.corner1.minus(fivedeew).dot(fivedee2));
+                 PVector corner2_3D = new PVector(face.corner2.minus(fivedeew).dot(fivedee0), face.corner2.minus(fivedeew).dot(fivedee1), face.corner2.minus(fivedeew).dot(fivedee2));
+                 PVector corner3_3D = new PVector(face.corner3.minus(fivedeew).dot(fivedee0), face.corner3.minus(fivedeew).dot(fivedee1), face.corner3.minus(fivedeew).dot(fivedee2));
+                 PVector corner4_3D = new PVector(face.corner4.minus(fivedeew).dot(fivedee0), face.corner4.minus(fivedeew).dot(fivedee1), face.corner4.minus(fivedeew).dot(fivedee2));
+                 beginShape();
+                 vertex(corner1_3D.x, corner1_3D.y, corner1_3D.z);
+                 vertex(corner2_3D.x, corner2_3D.y, corner2_3D.z);
+                 vertex(corner3_3D.x, corner3_3D.y, corner3_3D.z);
+                 vertex(corner4_3D.x, corner4_3D.y, corner4_3D.z);
+                 endShape(CLOSE);
+                 }*/
               }
             }
           }
@@ -679,7 +700,7 @@ public class Point6D {
   public Point6D copy() {
     return new Point6D(new float[]{point[0], point[1], point[2], point[3], point[4], point[5]});
   }
-  
+
   public Point6D abs() {
     return new Point6D(new float[]{Math.abs(point[0]), Math.abs(point[1]), Math.abs(point[2]), Math.abs(point[3]), Math.abs(point[4]), Math.abs(point[5])});
   }
@@ -770,22 +791,22 @@ class Rhomb {
   Rhomb a1next;
   Rhomb a2prev;
   Rhomb a2next;
-  Point6D corner1;//negative in both axes; (-.5,-.5)
-  Point6D corner2;//(-.5,.5)
-  Point6D corner3;//(.5,-.5)
-  Point6D corner4;//(.5,.5)
+  Vertex corner1;//negative in both axes; (-.5,-.5)
+  Vertex corner2;//(-.5,.5)
+  Vertex corner3;//(.5,-.5)
+  Vertex corner4;//(.5,.5)
   Point6D center;
   int value;
   int nextValue;
 
   // 3D cache
-  PVector corner1_3D;
+  /*PVector corner1_3D;
   PVector corner2_3D;
   PVector corner3_3D;
-  PVector corner4_3D;
+  PVector corner4_3D;*/
   PVector center_3D;
 
-  public Rhomb(Point6D c1, Point6D c2, Point6D c3, Point6D c4) {
+  public Rhomb(Vertex c1, Vertex c2, Vertex c3, Vertex c4) {
     corner1 = c1;
     corner2 = c2;
     corner3 = c3;
@@ -796,5 +817,246 @@ class Rhomb {
     a1next = null;
     a2next = null;
     parents = new ArrayList<Block>();
+  }
+}
+
+class Vertex extends Point6D {
+  PVector location_3D;
+  // TODO It's pretty lame that this class ends up being so many lines when it's literally
+  // adding one field and doing nothing else. Fix??
+  public Vertex (float a, float b, float c, float d, float e, float f) {
+    super(a,b,c,d,e,f);
+  }
+  public Vertex (float[] p) {
+    super(p);
+  }
+  public Vertex copy() {
+    return new Vertex(point);
+  }
+  public Vertex times(float scalar) {
+    return new Vertex(super.times(scalar).point);
+  }
+}
+
+// TODO Create version which uses integer coordinates
+abstract class Point6DStore<V> implements Iterable {
+  java.util.Dictionary[] storage;
+  ArrayList<V> list;
+  float tolerance;
+
+  public Point6DStore(float fetch_tolerance) {
+    tolerance = fetch_tolerance;
+    storage = new java.util.Dictionary[]{new java.util.Hashtable<Float, ArrayList<V>>(), new java.util.Hashtable<Float, ArrayList<V>>(), new java.util.Hashtable<Float, ArrayList<V>>(), 
+      new java.util.Hashtable<Float, ArrayList<V>>(), new java.util.Hashtable<Float, ArrayList<V>>(), new java.util.Hashtable<Float, ArrayList<V>>()};
+    list = new ArrayList<V>();
+  }
+
+  // TODO Make iterable have right type
+  // TODO Allow removal of items
+  // TODO There is almost complete overlap between code in contains(), add(), and get(). Find a clean way to abstract.
+
+  boolean contains(V value) {
+    Point6D key = location(value);
+    boolean found = false;
+    // TODO several ways to make this faster.
+    ArrayList<Float>[] hits = new ArrayList[]{new ArrayList<Float>(), new ArrayList<Float>(), new ArrayList<Float>(), new ArrayList<Float>(), new ArrayList<Float>(), new ArrayList<Float>()};
+    for (int i = 0; i < 6; i++) {
+      boolean came_up_empty = true;
+      for (java.util.Enumeration<Float> k = storage[i].keys(); k.hasMoreElements(); ) {
+        float nextkey = k.nextElement();
+        if (abs(nextkey - key.point[i]) < tolerance) {
+          hits[i].add(nextkey);
+          came_up_empty = false;
+        }
+      }
+      if (came_up_empty) {
+        // No need to do next dimension; unmatched in one means novel item.
+        break;
+      }
+    }
+    ArrayList<Integer> hitsize = new ArrayList<Integer>();
+    for (int i = 0; i < 6; i++) {
+      int sum = 0;
+      for (Float k : hits[i]) {
+        sum += ((ArrayList<Float>)(storage[i].get(k))).size();
+      }
+      hitsize.add(sum);
+    }
+    if (min(new int[]{hitsize.get(0), hitsize.get(1), hitsize.get(2), hitsize.get(3), hitsize.get(4), hitsize.get(5)}) == 0) {
+      // Item not present in storage.
+      return false;
+    }
+    int i = hitsize.indexOf(min(new int[]{hitsize.get(0), hitsize.get(1), hitsize.get(2), hitsize.get(3), hitsize.get(4), hitsize.get(5)}));
+    for (Float k : hits[i]) {
+      ArrayList<V> values = (ArrayList<V>)storage[i].get(k);
+      for (V fetched : values) {
+        if (equals(location(value), location(fetched))) {
+          found = true;
+          return found;
+        }
+      }
+    }
+    return found;
+  }
+
+  V add(V value) {
+    Point6D key = location(value);
+    boolean found = false;
+    // TODO several ways to make this faster.
+    ArrayList<Float>[] hits = new ArrayList[]{new ArrayList<Float>(), new ArrayList<Float>(), new ArrayList<Float>(), new ArrayList<Float>(), new ArrayList<Float>(), new ArrayList<Float>()};
+    for (int i = 0; i < 6; i++) {
+      boolean came_up_empty = true;
+      for (java.util.Enumeration<Float> k = storage[i].keys(); k.hasMoreElements(); ) {
+        float nextkey = k.nextElement();
+        if (abs(nextkey - key.point[i]) < tolerance) {
+          hits[i].add(nextkey);
+          came_up_empty = false;
+        }
+      }
+      if (came_up_empty) {
+        // No need to do next dimension; unmatched in one means novel item.
+        break;
+      }
+    }
+    ArrayList<Integer> hitsize = new ArrayList<Integer>();
+    for (int i = 0; i < 6; i++) {
+      int sum = 0;
+      for (Float k : hits[i]) {
+        sum += ((ArrayList<Float>)(storage[i].get(k))).size();
+      }
+      hitsize.add(sum);
+    }
+    if (min(new int[]{hitsize.get(0), hitsize.get(1), hitsize.get(2), hitsize.get(3), hitsize.get(4), hitsize.get(5)}) == 0) {
+      // Item not present in storage. Go ahead and add it.
+      definitelyAdd(key, value);
+      return value;
+    }
+    int i = hitsize.indexOf(min(new int[]{hitsize.get(0), hitsize.get(1), hitsize.get(2), hitsize.get(3), hitsize.get(4), hitsize.get(5)}));
+    for (Float k : hits[i]) {
+      ArrayList<V> values = (ArrayList<V>)storage[i].get(k);
+      for (V fetched : values) {
+        if (equals(location(value), location(fetched))) {
+          found = true;
+          return fetched;
+        }
+      }
+    }
+    if (!found) {
+      // Item is not present; actually add it
+      definitelyAdd(key, value);
+      return value;
+    }
+    // Hopefully this is unreachable
+    return null;
+  }
+
+  private void definitelyAdd(Point6D key, V value) {
+    for (int i = 0; i < 6; i++) {
+      ArrayList<V> list_i = (ArrayList<V>)(storage[i].get(key.point[i]));
+      if (list_i != null){
+        list_i.add(value);
+      } else {
+        ArrayList<V> initial_list_i = new ArrayList<V>();
+        initial_list_i.add(value);
+        storage[i].put(key.point[i],initial_list_i);
+      }
+    }
+    list.add(value);
+  }
+  
+  V get(Point6D key) {
+    // TODO several ways to make this faster.
+    ArrayList<Float>[] hits = new ArrayList[]{new ArrayList<Float>(), new ArrayList<Float>(), new ArrayList<Float>(), new ArrayList<Float>(), new ArrayList<Float>(), new ArrayList<Float>()};
+    for (int i = 0; i < 6; i++) {
+      boolean came_up_empty = true;
+      for (java.util.Enumeration<Float> k = storage[i].keys(); k.hasMoreElements(); ) {
+        float nextkey = k.nextElement();
+        if (abs(nextkey - key.point[i]) < tolerance) {
+          hits[i].add(nextkey);
+          came_up_empty = false;
+        }
+      }
+      if (came_up_empty) {
+        // No need to do next dimension; unmatched in one means novel item.
+        break;
+      }
+    }
+    ArrayList<Integer> hitsize = new ArrayList<Integer>();
+    for (int i = 0; i < 6; i++) {
+      int sum = 0;
+      for (Float k : hits[i]) {
+        sum += ((ArrayList<Float>)(storage[i].get(k))).size();
+      }
+      hitsize.add(sum);
+    }
+    if (min(new int[]{hitsize.get(0), hitsize.get(1), hitsize.get(2), hitsize.get(3), hitsize.get(4), hitsize.get(5)}) == 0) {
+      // Item not present in storage.
+      return null;
+    }
+    int i = hitsize.indexOf(min(new int[]{hitsize.get(0), hitsize.get(1), hitsize.get(2), hitsize.get(3), hitsize.get(4), hitsize.get(5)}));
+    for (Float k : hits[i]) {
+      ArrayList<V> values = (ArrayList<V>)storage[i].get(k);
+      for (V fetched : values) {
+        if (equals(key, location(fetched))) {
+          return fetched;
+        }
+      }
+    }
+    // Item not found
+    return null;
+  }
+  
+  boolean equals(Point6D a, Point6D b) {
+    return (max((a).minus((b)).abs().point) < tolerance);
+  }
+
+  abstract Point6D location(V value);
+
+  public java.util.Iterator<V> iterator() {
+    return list.iterator();
+  }
+  
+  public int size( ) {
+    return list.size();
+  }
+}
+
+class RhombStore extends Point6DStore<Rhomb> {
+  public RhombStore(float tolerance) {
+    super(tolerance);
+  }
+
+  Point6D location(Rhomb r) {
+    return r.center;
+  }
+}
+
+class VertexStore extends Point6DStore<Vertex> {
+  public VertexStore(float tolerance) {
+    super(tolerance);
+  }
+
+  Point6D location(Vertex v) {
+    return v;
+  }
+}
+
+class BlockStore extends Point6DStore<Block> {
+  public BlockStore(float tolerance) {
+    super(tolerance);
+  }
+
+  Point6D location(Block b) {
+    return b.center;
+  }
+}
+
+class PointStore extends Point6DStore<Point6D> {
+  public PointStore(float tolerance) {
+    super(tolerance);
+  }
+  
+  Point6D location(Point6D p) {
+    return p;
   }
 }
