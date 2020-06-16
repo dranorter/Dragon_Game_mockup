@@ -255,7 +255,7 @@ public class Quasicrystal {
             // We have corners to work with, not edges; strategy will be to generate the line segments between 
             // these, find intersections, and then take the extreme values.
             // TODO: Shouldn't need to use lines between all corners. Take extreme corners on either side? Corners which share some higher-D values?
-            ArrayList<Point6D> intersections = new ArrayList<Point6D>();
+            ArrayList<Point6D> plane_intersections = new ArrayList<Point6D>();
             for (int i = 0; i < planecorners.size(); i++) {
               for (int j = i; j < planecorners.size(); j++) {
                 if (i != j) {
@@ -263,7 +263,7 @@ public class Quasicrystal {
                   if ((dimN <= planecorners.get(i).point[N] || dimN <= planecorners.get(j).point[N]) && (dimN >= planecorners.get(i).point[N] || dimN >= planecorners.get(j).point[N])) {
                     float dist = (dimN - planecorners.get(i).point[N])/(planecorners.get(j).point[N] - planecorners.get(i).point[N]);
                     if (dist > 0 && dist < 1) {// Intersections right on the edge don't introduce cells
-                      intersections.add(planecorners.get(i).plus((planecorners.get(j).minus(planecorners.get(i))).times(dist)));
+                      plane_intersections.add(planecorners.get(i).plus((planecorners.get(j).minus(planecorners.get(i))).times(dist)));
                     }
                   }
                 }
@@ -271,22 +271,22 @@ public class Quasicrystal {
             }
 
             // If the only intersection is at a corner, we can end up with none, in which case, skip
-            if (intersections.size() == 0) continue;
+            if (plane_intersections.size() == 0) continue;
 
             // For consistency of direction, we want a convention for which side is "enter" and which "exit". Using vector [1,1,1,1,1] for direction.
-            Point6D enterp = intersections.get(0);
-            Point6D exitp = intersections.get(0);
+            Point6D enterp = plane_intersections.get(0);
+            Point6D exitp = plane_intersections.get(0);
             Point6D metric = new Point6D(1, 1, 1, 1, 1, 1);
 
-            for (int i = 0; i < intersections.size(); i++) {
-              if (intersections.get(i).dot(metric) < enterp.dot(metric)) enterp = intersections.get(i);
-              if (intersections.get(i).dot(metric) > exitp.dot(metric)) exitp = intersections.get(i);
+            for (int i = 0; i < plane_intersections.size(); i++) {
+              if (plane_intersections.get(i).dot(metric) < enterp.dot(metric)) enterp = plane_intersections.get(i);
+              if (plane_intersections.get(i).dot(metric) > exitp.dot(metric)) exitp = plane_intersections.get(i);
             }
             if (enterp == exitp) {
-              metric = intersections.get(0).minus(intersections.get(intersections.size()-1));
-              for (int i = 0; i < intersections.size(); i++) {
-                if (intersections.get(i).dot(metric) < enterp.dot(metric)) enterp = intersections.get(i);
-                if (intersections.get(i).dot(metric) > exitp.dot(metric)) exitp = intersections.get(i);
+              metric = plane_intersections.get(0).minus(plane_intersections.get(plane_intersections.size()-1));
+              for (int i = 0; i < plane_intersections.size(); i++) {
+                if (plane_intersections.get(i).dot(metric) < enterp.dot(metric)) enterp = plane_intersections.get(i);
+                if (plane_intersections.get(i).dot(metric) > exitp.dot(metric)) exitp = plane_intersections.get(i);
               }
             }
 
@@ -326,7 +326,48 @@ public class Quasicrystal {
             // plane) so that we can then quickly find them right before this for 
             // loop and add them to dists/dims. And we don't know ahead of time
             // what all the values that will be fixed are - though we do know bounds.
+            // TODO Write an actual fetch method that could do this so that tolerance 
+            // can be factored in. Ideally what we want is for incomplete queries to 
+            // return a new PointStore object so that our queries can be chained
+            // together.
+            ArrayList<Point6D> onOurPlane = new ArrayList<Point6D>();
+            if (intersections.storage[planeDim].get(planeN) != null) onOurPlane = (ArrayList<Point6D>)(intersections.storage[planeDim].get(planeN));
+            ArrayList<Point6D> onOurOtherPlane = new ArrayList<Point6D>();
+            if (intersections.storage[N].get(dimN) != null) onOurOtherPlane = (ArrayList<Point6D>)(intersections.storage[N].get(dimN));
+            for (Point6D p : onOurPlane) {
+              if (onOurOtherPlane.contains(p)) {
+                // p is on our line
+                int dim = -1;
+                for (int check_d = 0; check_d < 6; check_d++) {
+                  if (check_d != N && check_d != planeDim && (p.point[check_d] - floor(p.point[check_d]) == 0.5)) {
+                    // There should only be one dimension like this
+                  assert dim == -1 : 
+                    "Double-cross in intersection history. Dunno how to split it up. Teach me how.";
+                    dim = check_d;
+                  }
+                }
+                float dist = -1;
+                for (int check_d = 0; check_d < 6; check_d++) {
+                  if (check_d != N && check_d != planeDim && check_d != dim) {
+                    float this_dist = (p.point[check_d] - enter[check_d])/linevector[check_d];
+                    if (dist > 0) {
+                      // Asserting that all ways of calculating dist are same to high tolerance
+                      // TODO This level of tolerance is abyssmal. How come?
+                      assert abs(dist - this_dist) < 0.5 :
+                      "Wrong about distance math. Got "+dist+" and "+this_dist;
+                    }
+                    dist = this_dist;
+                    if (!test_assertions) break;
+                  }
+                }
+                //float dist = p.minus(new Point6D(enter)).length()/(new Point6D(linevector)).length();
+                //dists.add(dist);
+                //dims.add(dim);
+              }
+            }
+            // Okay, trying this out with initialization d=N; above code should catch old lower-d intersections.
             for (int d = 0; d < 6; d++) {
+              //for (int d = N; d < 6; d++) {
               if (d != N && d != planeDim) {
                 // We want to catch any included half-integer values, so we'll subtract 0.5 and take all integer values of that range.
                 for (int i = ceil(min(enter[d], exit[d])-0.5); i <= max(enter[d], exit[d])-0.5; i++) {//I changed from floor to ceil here. We don't want an intersection which isn't onscreen.//TODO This change fixed stuff but I don't see why it did! Reverse engineer bug!!
@@ -343,9 +384,20 @@ public class Quasicrystal {
                   intersection.point[N] = dimN;
                   intersection.point[d] = i+0.5;
                   for (int j = 0; j < 6; j++) {
-                    if (j != planeDim && j != N && j != i) {
+                    if (j != planeDim && j != N && j != d) {
                       intersection.point[j] = enter[j] + linevector[j]*dist;
                     }
+                  }
+                  // intersection as calculated ought to be on our line and in our 3D space.
+                  // TODO remove these checks after awhile
+                  //println("d: "+d+" N: "+N+" planeDim: "+planeDim);
+                  //println(intersection.minus(enterp.plus(new Point6D(linevector).times(dist))).point);
+                  if (test_assertions) {
+                    assert (intersection.minus(fivedeew).ortho(fivedeex).ortho(fivedeey).ortho(fivedeez).length() < 0.001) : 
+                    "Intersection not within our space, by "+intersection.minus(fivedeew).ortho(fivedeex).ortho(fivedeey).ortho(fivedeez).length();
+                    Point6D intersectionvector = intersection.minus(enterp);
+                    assert (intersectionvector.ortho(new Point6D(linevector)).length() < 0.001) : 
+                    "Intersection not on line";
                   }
                   intersections.add(intersection);
                 }
@@ -455,10 +507,10 @@ public class Quasicrystal {
                 int dim = sorteddims[i];
                 int dir = enter[dim] < exit[dim] ? 1 : -1;
 
-                Vertex oldLeftDownCell = left_downCell.copy();
-                Vertex oldRightDownCell = right_downCell.copy();
-                Vertex oldLeftUpCell = left_upCell.copy();
-                Vertex oldRightUpCell = right_upCell.copy();
+                Vertex oldLeftDownCell = left_downCell;
+                Vertex oldRightDownCell = right_downCell;
+                Vertex oldLeftUpCell = left_upCell;
+                Vertex oldRightUpCell = right_upCell;
 
                 //TODO Floating point error could build up as I add and subtract integers here; could be better off using integers.
                 left_downCell = left_downCell.copy();
@@ -469,8 +521,9 @@ public class Quasicrystal {
                 right_downCell.point[dim] += 1*dir;
                 left_upCell.point[dim] += 1*dir;
                 right_upCell.point[dim] += 1*dir;
-                
-                assert left_downCell.minus(oldLeftDownCell).length() == 1.0: "Wrong nldc-oldc";
+
+                assert left_downCell.minus(oldLeftDownCell).length() == 1.0: 
+                "Wrong nldc-oldc";
 
                 //Point6D newintersection = enterp.plus((exitp.minus(enterp)).times(sorteddists[i]));
                 /*println(oldLeftDownCell.minus(newintersection).length());
@@ -486,6 +539,15 @@ public class Quasicrystal {
                 right_downCell = cells.add(right_downCell);
                 left_upCell = cells.add(left_upCell);
                 right_upCell = cells.add(right_upCell);
+
+                assert cells.contains(oldLeftDownCell): 
+                "old cell missing from cells";
+                assert cells.contains(oldRightDownCell): 
+                "old cell missing from cells";
+                assert cells.contains(oldLeftUpCell): 
+                "old cell missing from cells";
+                assert cells.contains(oldRightUpCell): 
+                "old cell missing from cells";
 
                 // Our eight cell-centers define a parallelepiped (of course in 5D it's a cube). In dim N, the left cells 
                 // lie in the positive direction from the right. In planeDim, the up cells lie in the positive direction 
@@ -548,17 +610,18 @@ public class Quasicrystal {
                   //blocks.add(block);
                   // This ordering of the axes - (N, planeDim, dim) - will be used when interpreting prev and next.
                   block.axes = new ArrayList<Integer>(java.util.Arrays.asList(new Integer[]{N, planeDim, dim}));
-                  block.sides.add(new Rhomb(oldLeftDownCell.copy(), oldRightDownCell.copy(), oldLeftUpCell.copy(), oldRightUpCell.copy()));// old face
-                  block.sides.add(new Rhomb(oldLeftDownCell.copy(), left_downCell.copy(), oldLeftUpCell.copy(), left_upCell.copy()));// left face
-                  block.sides.add(new Rhomb(right_downCell.copy(), left_downCell.copy(), right_upCell.copy(), left_upCell.copy()));// new face
-                  block.sides.add(new Rhomb(right_downCell.copy(), oldRightDownCell.copy(), right_upCell.copy(), oldRightUpCell.copy()));// right face
-                  block.sides.add(new Rhomb(oldLeftUpCell.copy(), oldRightUpCell.copy(), left_upCell.copy(), right_upCell.copy()));// up face
-                  block.sides.add(new Rhomb(oldLeftDownCell.copy(), oldRightDownCell.copy(), left_downCell.copy(), right_downCell.copy()));// down face
+                  block.sides.add(new Rhomb(oldLeftDownCell, oldRightDownCell, oldLeftUpCell, oldRightUpCell));// old face
+                  block.sides.add(new Rhomb(oldLeftDownCell, left_downCell, oldLeftUpCell, left_upCell));// left face
+                  block.sides.add(new Rhomb(right_downCell, left_downCell, right_upCell, left_upCell));// new face
+                  block.sides.add(new Rhomb(right_downCell, oldRightDownCell, right_upCell, oldRightUpCell));// right face
+                  block.sides.add(new Rhomb(oldLeftUpCell, oldRightUpCell, left_upCell, right_upCell));// up face
+                  block.sides.add(new Rhomb(oldLeftDownCell, oldRightDownCell, left_downCell, right_downCell));// down face
                   for (int side = 0; side < block.sides.size(); side++) {
-                    float side_distance = block.sides.get(side).center.minus(block.center).length();
-                    assert(side_distance == 0.5) : "Side is wrong distance from center";
-                    // I probably spend a whole lot of my time checking for duplicate rhombs.
-                    // Should store them in a searchable way.
+                    if (test_assertions) {
+                      float side_distance = block.sides.get(side).center.minus(block.center).length();
+                      assert(side_distance == 0.5) : 
+                      "Side is wrong distance from center";
+                    }
                     //boolean rhombregistered = false;
                     // Rather than tracking direction and next vs. prev,
                     // for now I'm just going to rely on rhombs' ordering in "sides"
@@ -581,7 +644,15 @@ public class Quasicrystal {
                       prev_rhomb.parents.add(block);
                       assert prev_rhomb.parents.size() == 1 : 
                       "Rhombus already has two parents";
+                      assert block.sides.get(side).parents.size() == 1 : 
+                      "Rhombus already has two parents, and something odd is happening with RhombStore";
                     }
+                    assert prev_rhomb == block.sides.get(side) : 
+                    "Somehow didn't fix a mismatch";
+                    assert rhombs.contains(block.sides.get(side)) : 
+                    "RhombStore doing something weird";
+                    assert prev_rhomb == rhombs.add(prev_rhomb) : 
+                    "RhombStore doing something weird";
                     /*for (Rhomb rh : rhombs) {
                      Point6D difference = block.sides.get(side).center.minus(rh.center);
                      float maxdivergence = max(new float[]{abs(difference.point[0]), abs(difference.point[1]), abs(difference.point[2]), abs(difference.point[3]), abs(difference.point[4]), abs(difference.point[5])});
@@ -605,7 +676,18 @@ public class Quasicrystal {
                      }*/
                   }
                 }
-
+                if (test_assertions) {
+                  for (Rhomb face : prev_block.sides) {
+                    assert rhombs.contains(face) : 
+                    "A face remains unregistered";
+                    assert cells.contains(face.corner1) : 
+                    "A corner remains unregistered";
+                  }
+                  for (Rhomb face : block.sides) {
+                    assert cells.contains(face.corner1) : 
+                    "A corner remains unregistered in an unused block object";
+                  }
+                }
                 /*for (Rhomb face : block.sides) {
                  PVector corner1_3D = new PVector(face.corner1.minus(fivedeew).dot(fivedee0), face.corner1.minus(fivedeew).dot(fivedee1), face.corner1.minus(fivedeew).dot(fivedee2));
                  PVector corner2_3D = new PVector(face.corner2.minus(fivedeew).dot(fivedee0), face.corner2.minus(fivedeew).dot(fivedee1), face.corner2.minus(fivedeew).dot(fivedee2));
@@ -711,6 +793,15 @@ public class Point6D {
 
   public Point6D abs() {
     return new Point6D(new float[]{Math.abs(point[0]), Math.abs(point[1]), Math.abs(point[2]), Math.abs(point[3]), Math.abs(point[4]), Math.abs(point[5])});
+  }
+
+  public void set(Point6D p) {
+    point[0] = p.point[0];
+    point[1] = p.point[1];
+    point[2] = p.point[2];
+    point[3] = p.point[3];
+    point[4] = p.point[4];
+    point[5] = p.point[5];
   }
 }
 
@@ -844,10 +935,21 @@ class Vertex extends Point6D {
   public Vertex times(float scalar) {
     return new Vertex(super.times(scalar).point);
   }
+
+  public void set(Vertex v) {
+    // TODO I want a compile-time error if I add a field to Vertex and forget to
+    // copy its value here. Is that too much to ask?
+    super.set(v);
+    //location_3D.x = v.location_3D.x;
+    //location_3D.y = v.location_3D.y;
+    //location_3D.z = v.location_3D.z;
+    location_3D = v.location_3D;
+  }
 }
 
 // TODO Create version which uses integer coordinates
 abstract class Point6DStore<V> implements Iterable {
+  // TODO make list and storage private, deal with the consequences properly.
   java.util.Dictionary[] storage;
   ArrayList<V> list;
   float tolerance;
@@ -863,6 +965,61 @@ abstract class Point6DStore<V> implements Iterable {
   // TODO Allow removal of items
   // TODO Support get() queries with wider tolerances; use to optimize chunk classification.
   // TODO There is almost complete overlap between code in contains(), add(), and get(). Find a clean way to abstract.
+
+  /*private void general_lookup(Point6D key, boolean do_add, boolean do_return_multiple, float tolerance, V value, Boolean return_found, V[] return_match, ArrayList return_multiple) {
+   // Look for matches to key, within range tolerance. If do_add, and no matches, add value using key.
+   // If there is a match, return it by assignment to return_match, then terminate search. If 
+   // do_return_multiple, continue the search instead and return all matches. Set return_found to true 
+   // whenever one or more matches are found.
+   boolean found = false;
+   // TODO several ways to make this faster.
+   ArrayList<Float>[] hits = new ArrayList[]{new ArrayList<Float>(), new ArrayList<Float>(), new ArrayList<Float>(), new ArrayList<Float>(), new ArrayList<Float>(), new ArrayList<Float>()};
+   for (int i = 0; i < 6; i++) {
+   boolean came_up_empty = true;
+   for (java.util.Enumeration<Float> k = storage[i].keys(); k.hasMoreElements(); ) {
+   float nextkey = k.nextElement();
+   if (abs(nextkey - key.point[i]) < tolerance) {
+   hits[i].add(nextkey);
+   came_up_empty = false;
+   }
+   }
+   if (came_up_empty) {
+   // No need to do next dimension; unmatched in one means novel item.
+   break;
+   }
+   }
+   ArrayList<Integer> hitsize = new ArrayList<Integer>();
+   for (int i = 0; i < 6; i++) {
+   int sum = 0;
+   for (Float k : hits[i]) {
+   sum += ((ArrayList<Float>)(storage[i].get(k))).size();
+   }
+   hitsize.add(sum);
+   }
+   if (min(new int[]{hitsize.get(0), hitsize.get(1), hitsize.get(2), hitsize.get(3), hitsize.get(4), hitsize.get(5)}) == 0) {
+   // Item not present in storage. Go ahead and add it.
+   if (do_add) definitelyAdd(key, value);
+   return_found
+   return;
+   }
+   int i = hitsize.indexOf(min(new int[]{hitsize.get(0), hitsize.get(1), hitsize.get(2), hitsize.get(3), hitsize.get(4), hitsize.get(5)}));
+   for (Float k : hits[i]) {
+   ArrayList<V> values = (ArrayList<V>)storage[i].get(k);
+   for (V fetched : values) {
+   if (equals(location(value), location(fetched))) {
+   found = true;
+   return fetched;
+   }
+   }
+   }
+   if (!found) {
+   // Item is not present; actually add it
+   definitelyAdd(key, value);
+   return value;
+   }
+   // Hopefully this is unreachable
+   return null;
+   }*/
 
   boolean contains(V value) {
     Point6D key = location(value);
