@@ -8,7 +8,7 @@
  * 
  *****************************************/
 //import queasycam.*;
-boolean test_assertions = false;
+boolean test_assertions = true;
 
 float driftspeed = 1;
 
@@ -17,7 +17,7 @@ float driftspeed = 1;
 // distance cutoff was too low when searching for overlapping points. So the 
 // low number of uniques is just because of that.
 float chunk_ratio = 2.0;//((1+sqrt(5))/2)*((1+sqrt(5))/2)*((1+sqrt(5))/2);//2.0;
-boolean skip_classif = true;
+boolean skip_classif = false;
 
 boolean run = true;
 boolean firstrun = true;
@@ -342,7 +342,8 @@ void generate() {
   //float[] fivedeey = {random(-10,10),random(-10,10),random(-10,10),random(-10,10),random(-10,10)};
   //float[] fivedeew = {random(-10,10),random(-10,10),random(-10,10),random(-10,10),random(-10,10)};// The position of the screen's origin
 
-  // Penrose?
+  // Idea: Rather than implementing the Steinhardt algorithm I could 
+  // Penrose
   float phi = (1+sqrt(5))/2;
   Point6D x = new Point6D(new float[]{phi, 0, 1, phi, 0, -1});
   Point6D y = new Point6D(new float[]{1, phi, 0, -1, phi, 0});
