@@ -1,4 +1,4 @@
-/********************************************** //<>// //<>// //<>//
+/********************************************** //<>// //<>// //<>// //<>// //<>// //<>//
  *
  * Implements a 3D quasicrystal tiling within 
  * given rectangular bounds.
@@ -93,10 +93,11 @@ public class Quasicrystal {
 
 
     // Clear out the arrays
+    // TODO Might be more efficient to use lower tolerance on some of these?
     cells = new VertexStore(tolerance);
     rhombs = new RhombStore(tolerance);
     blocks = new BlockStore(tolerance);
-    intersections = new PointStore(tolerance);
+    intersections = new PointStore(0);// High tolerance is important here
 
     // Iterate over the dimension we hold constant
     for (int planeDim = 0; planeDim < 6; planeDim++) {
@@ -111,11 +112,11 @@ public class Quasicrystal {
       Point6D plane5Dw = new Point6D(0, 0, 0, 0, 0, 0);
       plane5Dw.point[planeDim] = 1;
 
-      for (float planeN = planestarts[planeDim]; planeN < planeends[planeDim]; planeN += 1) {
+      for (float planeLoc = planestarts[planeDim]; planeLoc < planeends[planeDim]; planeLoc += 1) {
 
         // We are on a plane which slices the rectangular prism which is our 3D space.
 
-        plane5Dw.point[planeDim] = planeN;
+        plane5Dw.point[planeDim] = planeLoc;
 
         // Now we need to find all Voronoi cells of the 5D lattice which intersect our plane.
 
@@ -141,7 +142,7 @@ public class Quasicrystal {
               Point6D secondp = (new Point6D[]{spacebounds[1][firstd][secondd], spacebounds[firstd][1][secondd], spacebounds[firstd][secondd][1]})[varied];
               Point6D difference = secondp.minus(firstp);
               if (difference.point[planeDim] > 0) {
-                Point6D intersection =  difference.times(planeN - firstp.point[planeDim]).times(1.0/difference.point[planeDim]);
+                Point6D intersection =  difference.times(planeLoc - firstp.point[planeDim]).times(1.0/difference.point[planeDim]);
                 if (intersection.dot(difference) < 0 || intersection.length() > difference.length()) {
                   // Point is outside the space, do nothing.
                 } else {
@@ -237,15 +238,15 @@ public class Quasicrystal {
 
 
 
-        println("Plane slices: "+(planeDim*16.6+(planeN-planestarts[planeDim])*16.6/(planeends[planeDim]-planestarts[planeDim]))+"%");
+        println("Plane slices: "+(planeDim*16.6+(planeLoc-planestarts[planeDim])*16.6/(planeends[planeDim]-planestarts[planeDim]))+"%");
         //background((planeDim*20+(planeN-planestarts[planeDim])*20/(planeends[planeDim]-planestarts[planeDim]))*255);
 
         //Starting with planeDim because the other lines have been checked already back when they were planes.
-        for (int N = planeDim; N < 6; N++) {
+        for (int lineDim = planeDim; lineDim < 6; lineDim++) {
           //Skip this iteration if we're on the dimension which generated the plane.
-          if (N == planeDim) continue;
+          if (lineDim == planeDim) continue;
 
-          for (float dimN = dimstarts[N]; dimN <= dimends[N]; dimN += 1) {
+          for (float lineLoc = dimstarts[lineDim]; lineLoc <= dimends[lineDim]; lineLoc += 1) {
             // We are on a line where the Nth 5D coordinate takes value dimN (and because of the plane, planeDimth coordinate takes value planeN).
             // Find where this line enters and leaves the cut.
             // "enter" and "exit" will be points in proper 5D, ie, we include the offset "plane5Dw"
@@ -264,8 +265,8 @@ public class Quasicrystal {
               for (int j = i; j < planecorners.size(); j++) {
                 if (i != j) {
                   // okay, segment starting at planecorners.get(i) and ending at planecorners.get(j).
-                  if ((dimN <= planecorners.get(i).point[N] || dimN <= planecorners.get(j).point[N]) && (dimN >= planecorners.get(i).point[N] || dimN >= planecorners.get(j).point[N])) {
-                    float dist = (dimN - planecorners.get(i).point[N])/(planecorners.get(j).point[N] - planecorners.get(i).point[N]);
+                  if ((lineLoc <= planecorners.get(i).point[lineDim] || lineLoc <= planecorners.get(j).point[lineDim]) && (lineLoc >= planecorners.get(i).point[lineDim] || lineLoc >= planecorners.get(j).point[lineDim])) {
+                    float dist = (lineLoc - planecorners.get(i).point[lineDim])/(planecorners.get(j).point[lineDim] - planecorners.get(i).point[lineDim]);
                     if (dist > 0 && dist < 1) {// Intersections right on the edge don't introduce cells
                       segment_intersections.add(planecorners.get(i).plus((planecorners.get(j).minus(planecorners.get(i))).times(dist)));
                     }
@@ -278,8 +279,6 @@ public class Quasicrystal {
             if (segment_intersections.size() == 0) continue;
 
             // For consistency of direction, we want a convention for which side is "enter" and which "exit". Using vector [1,1,1,1,1] for direction.
-            Point6D enterp = segment_intersections.get(0);
-            Point6D exitp = segment_intersections.get(0);
             Point6D segenterp = segment_intersections.get(0);
             Point6D segexitp = segment_intersections.get(0);
 
@@ -298,30 +297,32 @@ public class Quasicrystal {
               }
             }
 
-            // TODO Make the below code work and then run it as a double-check?
-            Point6D metric = new Point6D(1, 1, 1, 1, 1, 1);
-            for (int i = 0; i < segment_intersections.size(); i++) {
-              if (segment_intersections.get(i).dot(metric) < enterp.dot(metric)) enterp = segment_intersections.get(i);
-              if (segment_intersections.get(i).dot(metric) > exitp.dot(metric)) exitp = segment_intersections.get(i);
-            }
-            if (enterp == exitp) {
-              metric = segment_intersections.get(0).minus(segment_intersections.get(segment_intersections.size()-1));
-              for (int i = 0; i < segment_intersections.size(); i++) {
-                if (segment_intersections.get(i).dot(metric) < enterp.dot(metric)) enterp = segment_intersections.get(i);
-                if (segment_intersections.get(i).dot(metric) > exitp.dot(metric)) exitp = segment_intersections.get(i);
-              }
-            }
-            //assert (enterp.minus(exitp).length() == segenterp.minus(segexitp).length()): 
-            //"Failed to pick maximally distant entrance and exit. Difference was "+(enterp.minus(exitp).length() - segenterp.minus(segexitp).length());
-            //
+            /* TODO Make the below code work and then run it as a double-check?
+             Point6D enterp = segment_intersections.get(0);
+             Point6D exitp = segment_intersections.get(0);
+             Point6D metric = new Point6D(1, 1, 1, 1, 1, 1);
+             for (int i = 0; i < segment_intersections.size(); i++) {
+             if (segment_intersections.get(i).dot(metric) < enterp.dot(metric)) enterp = segment_intersections.get(i);
+             if (segment_intersections.get(i).dot(metric) > exitp.dot(metric)) exitp = segment_intersections.get(i);
+             }
+             if (enterp == exitp) {
+             metric = segment_intersections.get(0).minus(segment_intersections.get(segment_intersections.size()-1));
+             for (int i = 0; i < segment_intersections.size(); i++) {
+             if (segment_intersections.get(i).dot(metric) < enterp.dot(metric)) enterp = segment_intersections.get(i);
+             if (segment_intersections.get(i).dot(metric) > exitp.dot(metric)) exitp = segment_intersections.get(i);
+             }
+             }
+             assert (enterp.minus(exitp).length() == segenterp.minus(segexitp).length()): 
+             "Failed to pick maximally distant entrance and exit. Difference was "+(enterp.minus(exitp).length() - segenterp.minus(segexitp).length());
+             */
 
 
-            assert segenterp != segexitp : 
+          assert segenterp != segexitp : 
             "Unable to determine entry/exit. Bad metric?";
 
             // TODO segenterp and segexitp appear to work; reinstate once code regains basic function.
-            enter = enterp.copy().point;
-            exit = exitp.copy().point;
+            enter = segenterp.copy().point;
+            exit = segexitp.copy().point;
             //enter2D = twodee.project(enterp.minus(plane5Dw)).point;
             //exit2D = twodee.project(exitp.minus(plane5Dw)).point;
 
@@ -337,7 +338,7 @@ public class Quasicrystal {
             ArrayList<Float> dists = new ArrayList<Float>();
             ArrayList<Integer> dims = new ArrayList<Integer>();
 
-            // Starting at d = 0. At one point I was silly and started at d = N.
+            // Starting at d = 0. At one point I was silly and started at d = lineDim.
             // We have to use d = 0 because we inherently want to catch old crossings.
             // TODO could we record old crossings and use them to start at d = N and
             // be more efficient? What we need for this is to create all the "dists"
@@ -351,54 +352,71 @@ public class Quasicrystal {
             // can be factored in. Ideally what we want is for incomplete queries to 
             // return a new PointStore object so that our queries can be chained
             // together.
-            /* TODO This stuff appears to work fine; reinstate w/ some proper tests once other stuff is working again.
-             ArrayList<Point6D> onOurPlane = new ArrayList<Point6D>();
-             if (intersections.storage[planeDim].get(planeN) != null) onOurPlane = (ArrayList<Point6D>)(intersections.storage[planeDim].get(planeN));
-             ArrayList<Point6D> onOurOtherPlane = new ArrayList<Point6D>();
-             if (intersections.storage[N].get(dimN) != null) onOurOtherPlane = (ArrayList<Point6D>)(intersections.storage[N].get(dimN));
-             ArrayList<Point6D> line_memory = new ArrayList<Point6D>();
-             for (Point6D p : onOurPlane) {
-             if (onOurOtherPlane.contains(p)) {
-             // p is on our line
-             line_memory.add(p);
-             }
-             }
-             for (Point6D p : line_memory) {
-             assert p.minus(segenterp).ortho(new Point6D(linevector)).length() < 0.01: 
-             "Point p is off the line by "+p.minus(segenterp).ortho(new Point6D(linevector)).length();
-             int dim = -1;
-             for (int check_d = 0; check_d < 6; check_d++) {
-             if (check_d != N && check_d != planeDim && (p.point[check_d] - floor(p.point[check_d]) == 0.5)) {
-             // There should only be one dimension like this
-             assert dim == -1 : 
-             "Double-cross in intersection history. Dunno how to split it up. Teach me how.";
-             dim = check_d;
-             }
-             }
-             float dist = -1;
-             for (int check_d = 0; check_d < 6; check_d++) {
-             if (check_d != N && check_d != planeDim && check_d != dim) {
-             float this_dist = (p.point[check_d] - enter[check_d])/linevector[check_d];
-             assert this_dist > 0 && this_dist < 1.0 : 
-             "new dist value exceeded range";
-             if (test_assertions && dist > 0) {
-             // Asserting that all ways of calculating dist are same to high tolerance
-             // TODO This level of tolerance is abyssmal. How come?
-             assert abs(dist - this_dist) < 0.00005 : 
-             "Wrong about distance math. Got "+dist+" and "+this_dist;
-             }
-             dist = this_dist;
-             if (!test_assertions) break;
-             }
-             }
-             //float dist = p.minus(new Point6D(enter)).length()/(new Point6D(linevector)).length();
-             //dists.add(dist);
-             //dims.add(dim);
-             }*/
+            /* TODO MEMORY MECHANISM find out why this doesn't work
+            // It seems the relationship between remembered intersections and the current dist loop
+            // is complex. I want to note cases of double-cross, since some grids make use of 
+            // those. Yet I don't want to double count crossings (for the same reason of course).
+            // So I can't let the PointStore object do the work of eliminating duplicates.
+            // Most of this is taken care of by starting at d = lineDim instead of d = 0, but
+            // ... well, I'm getting errors further down the line when I make the switch,
+            // Next step, I suppose, is adding a check for whether the points are near-identical,
+            // in the place where I currently test for number of remembered intersections.
+            ArrayList<Float> pre_N_dists = new ArrayList<Float>();
+            ArrayList<Float> memory_dists = new ArrayList<Float>();
+            ArrayList<Integer> pre_N_dims = new ArrayList<Integer>();
+            ArrayList<Integer> memory_dims = new ArrayList<Integer>();
+            ArrayList<Point6D> line_pre_N = new ArrayList<Point6D>();
+            ArrayList<Point6D> onOurPlane = new ArrayList<Point6D>();
+            if (intersections.storage[planeDim].get(planeLoc) != null) onOurPlane = (ArrayList<Point6D>)(intersections.storage[planeDim].get(planeLoc));
+            ArrayList<Point6D> onOurOtherPlane = new ArrayList<Point6D>();
+            if (intersections.storage[lineDim].get(lineLoc) != null) onOurOtherPlane = (ArrayList<Point6D>)(intersections.storage[lineDim].get(lineLoc));
+            ArrayList<Point6D> line_memory = new ArrayList<Point6D>();
+            for (Point6D p : onOurPlane) {
+              if (onOurOtherPlane.contains(p)) {
+                // p is on our line
+                line_memory.add(p);
+              }
+            }
+            for (Point6D p : line_memory) {
+              assert p.minus(segenterp).ortho(new Point6D(linevector)).length() < 0.01: 
+              "Point p is off the line by "+p.minus(segenterp).ortho(new Point6D(linevector)).length();
+              int dim = -1;
+              for (int check_d = 0; check_d < 6; check_d++) {
+                if (check_d != lineDim && check_d != planeDim && (p.point[check_d] - floor(p.point[check_d]) == 0.5)) {
+                  // There should only be one dimension like this
+                assert dim == -1 : 
+                  "Double-cross in intersection history. Dunno how to split it up. Teach me how.";
+                  dim = check_d;
+                }
+              }
+              float dist = -1;
+              for (int check_d = 0; check_d < 6; check_d++) {
+                if (check_d != lineDim && check_d != planeDim && check_d != dim) {
+                  float this_dist = (p.point[check_d] - enter[check_d])/linevector[check_d];
+                assert this_dist > 0 && this_dist < 1.0 : 
+                  "new dist value exceeded range";
+                  if (test_assertions && dist > 0) {
+                    // Asserting that all ways of calculating dist are same to high tolerance
+                    assert abs(dist - this_dist) < tolerance : 
+                    "Wrong about distance math. Got "+dist+" and "+this_dist;
+                  }
+                  dist = this_dist;
+                  if (!test_assertions) break;
+                }
+              }
+              //float dist = p.minus(new Point6D(enter)).length()/(new Point6D(linevector)).length();
+              memory_dists.add(dist);
+              memory_dims.add(dim);
+            }*/
             // Okay, trying this out with initialization d=N; above code should catch old lower-d intersections.
-            //for (int d = 0; d < 6; d++) {
-            for (int d = N; d < 6; d++) {
-              if (d != N && d != planeDim) {
+            for (int d = 0; d < 6; d++) {
+            /*for (int d = lineDim; d < 6; d++) {// Part of MEMORY MECHANISM tests
+              if (d == lineDim) {
+                // Check that things are adding up so far
+                assert dists.size() == memory_dists.size(): 
+                "Remembered "+(memory_dists.size()-dists.size())+" more intersections than were calculated."; //<>//
+              }*/
+              if (d != lineDim && d != planeDim) {
                 // We want to catch any included half-integer values, so we'll subtract 0.5 and take all integer values of that range.
                 for (int i = ceil(min(enter[d], exit[d])-0.5); i <= max(enter[d], exit[d])-0.5; i++) {//I changed from floor to ceil here. We don't want an intersection which isn't onscreen.//TODO This change fixed stuff but I don't see why it did! Reverse engineer bug!!
                   float dist = ((float(i)+0.5)-(enter[d]))/linevector[d];
@@ -406,9 +424,6 @@ public class Quasicrystal {
                   "Distance to crossing outside of expected range.";
                   dists.add(dist);
                   dims.add(d);
-                  //if (d < N && line_memory.size() > 0) {
-                  //  println("just making a line for a breakpoint");
-                  //}
                   // TODO I'm adding math here. Is this new storage system actually speeding anything up?
                   // Theoretically I could be cleverer and only store the math done already 
                   // (ie, store enter, linevector, planeDim, N, d, dist, and dim). On the other hand maybe
@@ -416,22 +431,34 @@ public class Quasicrystal {
                   // I'm doing unneeded work.
                   // Also note how the dists are not ever used after sorting them. They only need to be
                   // accurate enough to produce the ordering of the crossings. Can that be leveraged?
+                  // TODO If no new storage system, still want some assertions of that sort.
+                  /* part of MEMORY MECHANISM
                   Point6D intersection = new Point6D(0, 0, 0, 0, 0, 0);
-                  intersection.point[planeDim] = planeN;
-                  intersection.point[N] = dimN;
+                  intersection.point[planeDim] = planeLoc;
+                  intersection.point[lineDim] = lineLoc;
                   intersection.point[d] = i+0.5;
                   for (int j = 0; j < 6; j++) {
-                    if (j != planeDim && j != N && j != d) {
+                    if (j != planeDim && j != lineDim && j != d) {
                       intersection.point[j] = enter[j] + linevector[j]*dist;
                     }
                   }
-                  // intersection as calculated ought to be on our line and in our 3D space.
-                  //println("d: "+d+" N: "+N+" planeDim: "+planeDim);
-                  //println(intersection.minus(enterp.plus(new Point6D(linevector).times(dist))).point);
+
                   if (test_assertions) {
+                    if (d < lineDim && line_memory.size() > 0) {// part of MEMORY MECHANISM tests
+                      line_pre_N.add(segenterp.plus(new Point6D(linevector).times(dist)));
+                      //intersections.add(segenterp.plus(new Point6D(linevector).times(dist)));
+                    }
+                    Point6D prev_intersection = intersections.get(intersection);
+                    assert(!intersections.contains(intersection)) : 
+                    "PointStore object thinks it already has the intersection; so-called previous copy off by "+prev_intersection.minus(intersection).length();
+                    assert(intersection.minus(segenterp.plus(new Point6D(linevector).times(dist))).length() < 0.001) :
+                    "Frugal intersection calculation failed";
+                    // intersection as calculated ought to be on our line and in our 3D space.
+                    //println("d: "+d+" N: "+N+" planeDim: "+planeDim);
+                    //println(intersection.minus(enterp.plus(new Point6D(linevector).times(dist))).point);
                     assert (intersection.minus(fivedeew).ortho(fivedeex).ortho(fivedeey).ortho(fivedeez).length() < 0.001) : 
                     "Intersection not within our space, by "+intersection.minus(fivedeew).ortho(fivedeex).ortho(fivedeey).ortho(fivedeez).length();
-                    Point6D intersectionvector = intersection.minus(enterp);
+                    Point6D intersectionvector = intersection.minus(segenterp);
                     assert (intersectionvector.ortho(new Point6D(linevector)).length() < 0.001) : 
                     "Intersection not on line";
                     assert (intersectionvector.minus((new Point6D(linevector)).times(dist)).length() < 0.001) : 
@@ -439,7 +466,7 @@ public class Quasicrystal {
                     assert (intersectionvector.length()/(new Point6D(linevector)).length() <= 1.0) :
                     "Intersection beyond end of line segment";
                   }
-                  intersections.add(intersection);
+                  intersections.add(intersection);*/// part of MEMORY MECHANISM
                 }
               }
             }
@@ -483,19 +510,19 @@ public class Quasicrystal {
               // We step through with four cells; below vs. above the current plane, and to either side of the current line.
               Vertex left_downCell = new Vertex(round(enter[0]), round(enter[1]), round(enter[2]), round(enter[3]), round(enter[4]), round(enter[5]));
               // We have to add or subtract a bit to ensure we fall the desired direction for each starting cell. 
-              left_downCell.point[N] = round(enter[N]+0.01);
+              left_downCell.point[lineDim] = round(enter[lineDim]+0.01);
               left_downCell.point[planeDim] = round(enter[planeDim]-0.01);
 
               Vertex right_downCell = new Vertex(round(enter[0]), round(enter[1]), round(enter[2]), round(enter[3]), round(enter[4]), round(enter[5]));
-              right_downCell.point[N] = round(enter[N]-0.01);
+              right_downCell.point[lineDim] = round(enter[lineDim]-0.01);
               right_downCell.point[planeDim] = round(enter[planeDim]-0.01);
 
               Vertex left_upCell = new Vertex(round(enter[0]), round(enter[1]), round(enter[2]), round(enter[3]), round(enter[4]), round(enter[5]));
-              left_upCell.point[N] = round(enter[N]+0.01);
+              left_upCell.point[lineDim] = round(enter[lineDim]+0.01);
               left_upCell.point[planeDim] = round(enter[planeDim]+0.01);
 
               Vertex right_upCell = new Vertex(round(enter[0]), round(enter[1]), round(enter[2]), round(enter[3]), round(enter[4]), round(enter[5]));
-              right_upCell.point[N] = round(enter[N]-0.01);
+              right_upCell.point[lineDim] = round(enter[lineDim]-0.01);
               right_upCell.point[planeDim] = round(enter[planeDim]+0.01);
 
               left_downCell = cells.add(left_downCell);
@@ -649,7 +676,7 @@ public class Quasicrystal {
                   // block was new; do setup
                   //blocks.add(block);
                   // This ordering of the axes - (N, planeDim, dim) - will be used when interpreting prev and next.
-                  block.axes = new ArrayList<Integer>(java.util.Arrays.asList(new Integer[]{N, planeDim, dim}));
+                  block.axes = new ArrayList<Integer>(java.util.Arrays.asList(new Integer[]{lineDim, planeDim, dim}));
                   block.sides.add(new Rhomb(oldLeftDownCell, oldRightDownCell, oldLeftUpCell, oldRightUpCell));// old face
                   block.sides.add(new Rhomb(oldLeftDownCell, left_downCell, oldLeftUpCell, left_upCell));// left face
                   block.sides.add(new Rhomb(right_downCell, left_downCell, right_upCell, left_upCell));// new face

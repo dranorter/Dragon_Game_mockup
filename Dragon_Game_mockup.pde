@@ -16,7 +16,7 @@ float driftspeed = 1;
 // 33 unique. BUT they had no child blocks, which is very confusing. I think my
 // distance cutoff was too low when searching for overlapping points. So the 
 // low number of uniques is just because of that.
-float chunk_ratio = 2.0;//((1+sqrt(5))/2)*((1+sqrt(5))/2)*((1+sqrt(5))/2);//2.0;
+float chunk_ratio = ((1+sqrt(5))/2);//((1+sqrt(5))/2)*((1+sqrt(5))/2)*((1+sqrt(5))/2);//2.0;
 boolean skip_classif = false;
 
 boolean run = true;
@@ -515,9 +515,9 @@ ArrayList<Chunk> classifyChunks(Quasicrystal chunk_lattice, Quasicrystal lattice
       // Is the block anywhere near the chunk?
       // TODO Measure whether this is helping or hurting. Do it better?
       // Maybe manhatten distance is actually more relevant?
-      float dist = block.center.minus(chunk.center).length();
-      if (dist < chunk_ratio*1.05*sqrt(6)) {// TODO is this cutoff ok?
-        PointStore iterate = new PointStore(lattice.tolerance);
+      float dist = 0;//block.center.minus(chunk.center).length();
+      if (dist < chunk_ratio*1.5*sqrt(6)) {// TODO is this cutoff ok?
+        PointStore iterate = new PointStore(lattice.tolerance); //<>//
         //iterate.add(block.center);
         boolean maybe_skipchunk = false;
         // Let's decorate with corners too. It's okay that we'll repeat them.
@@ -552,7 +552,7 @@ ArrayList<Chunk> classifyChunks(Quasicrystal chunk_lattice, Quasicrystal lattice
             // Also add block's center, even though it may be outside chunk
             // TODO Adding this many decorations seems to greatly slow things down. maybe.
             // Fix?
-            decorations.add(block.center.copy());
+            decorations.add(block.center.copy()); //<>//
             addblock = true;
             if (maybe_skipchunk) {
               skipchunk = true;
