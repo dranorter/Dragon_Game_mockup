@@ -17,7 +17,7 @@ float driftspeed = 1;
 // distance cutoff was too low when searching for overlapping points. So the 
 // low number of uniques is just because of that.
 float chunk_ratio = ((1+sqrt(5))/2);//((1+sqrt(5))/2)*((1+sqrt(5))/2)*((1+sqrt(5))/2);//2.0;
-boolean skip_classif = false;
+boolean skip_classif = true;
 
 boolean run = true;
 boolean firstrun = true;
@@ -380,11 +380,11 @@ class chunkNetwork {
   ArrayList<Chunk> chunkTypes;
 
   public chunkNetwork(Point6D initial_w, Point6D x, Point6D y, Point6D z) {
-    float searchradius = 6;// needs to be big enough to guarantee one fully-populated chunk
+    float searchradius = 12;// needs to be big enough to guarantee one fully-populated chunk
     // Normalize in order to make searchradius "accurate"
-    x = x.normalize();
-    y = y.normalize();
-    z = z.normalize();
+    x = x.normalized();
+    y = y.normalized();
+    z = z.normalized();
     println("Generating block lattice...");
     Quasicrystal lattice = new Quasicrystal(initial_w, x, y, z, searchradius);
     //Quasicrystal lattice = new Quasicrystal(initial_w, x.plus(y), y.plus(z), z, searchradius);
@@ -397,7 +397,7 @@ class chunkNetwork {
     
     // Scale everything in chunk_lattice back up
 
-    /*chunk_lattice.fivedeex.set(chunk_lattice.fivedeex.times(chunk_ratio));
+    chunk_lattice.fivedeex.set(chunk_lattice.fivedeex.times(chunk_ratio));
     chunk_lattice.fivedeey.set(chunk_lattice.fivedeey.times(chunk_ratio));
     chunk_lattice.fivedeez.set(chunk_lattice.fivedeez.times(chunk_ratio));
     chunk_lattice.fivedeew.set(chunk_lattice.fivedeew.times(chunk_ratio));
@@ -439,7 +439,7 @@ class chunkNetwork {
     }
     for (Vertex v : (Iterable<Vertex>)(subblock_lattice.cells)) {
       v.set(v.times(1.0/chunk_ratio));
-    }*/
+    }//*/
 
     main_lattice = subblock_lattice;
     main_chunk_lattice = lattice;
