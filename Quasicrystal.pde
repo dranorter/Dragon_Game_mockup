@@ -864,58 +864,65 @@ public class Quasicrystal {
     for (Rhomb h : incomplete) {
       boolean have_proposal = false;
       Block proposal = new Block(new Vertex(0, 0, 0, 0, 0, 0));
-      assert rhombsOK(incomplete) : 
-      "Rhombs broken at start of h's loop";
+      //assert rhombsOK(incomplete) : 
+      //"Rhombs broken at start of h's loop";
       for (Rhomb i : incomplete) {
         if (h != i && max(h.center.minus(i.center).point) < 2) {// TODO This could be wrong cutoff once non-rhombohedron cells are included
           if (abs(h.center.minus(i.center).length() - (sqrt(2)/2)) <= tolerance) {
-            assert rhombsOK(incomplete):
-            "Rhombs broken by if statements";
-            // Adjacent face
-            if (have_proposal) {
-              proposal.sides.add(i);
-              assert rhombsOK(incomplete):
-              "Rhombs broken by adding to proposal";
-            } else {
-              // Gotta initialize proposal
-              Vertex new_center = new Vertex(h.center.copy().point);
-              Point6D diff = i.center.minus(h.center);
-              // Where h and i differ, take the one that's a half-integer rather than
-              // the one that's an integer.
-              for (int dim = 0; dim < 6; dim++) {
-                assert rhombsOK(incomplete):
-                "Rhombs broken before new proposal initialization";
-                if (abs(diff.point[dim]) > tolerance) {
-                  if (abs(abs(h.center.point[dim] - round(h.center.point[dim]))-0.5) <= tolerance) {
-                    assert rhombsOK(incomplete):
-                    "Rhombs broken by if statements w/in new proposal init";
-                    new_center.point[dim] = h.center.point[dim];
-                  } else {
-                    assert rhombsOK(incomplete):
-                    "Rhombs broken by first if statement w/in new proposal init";
-                    if (abs(abs(i.center.point[dim] - round(i.center.point[dim]))-0.5) <= tolerance) {
-                      assert rhombsOK(incomplete):
-                      "Rhombs broken before assignment to new_center";
-                      new_center.point[dim] = i.center.point[dim];
-                      assert rhombsOK(incomplete):
-                      "Rhombs broken by assignment to new_center";
+            // Might be adjacent face. Checking that it looks right
+            Point6D diff = i.center.minus(h.center);
+            int diffcount = 0;
+            for (int dim = 0; dim < 6; dim++) {
+              if (abs(diff.point[dim]) > tolerance) {
+                diffcount++;
+              }
+            }
+            if (diffcount == 2) {
+              // Adjacent face
+              if (have_proposal) {
+                proposal.sides.add(i);
+                //assert rhombsOK(incomplete):
+                //"Rhombs broken by adding to proposal";
+              } else {
+                // Gotta initialize proposal
+                Vertex new_center = new Vertex(h.center.copy().point);
+                // Where h and i differ, take the one that's a half-integer rather than
+                // the one that's an integer.
+                for (int dim = 0; dim < 6; dim++) {
+                  //assert rhombsOK(incomplete):
+                  //"Rhombs broken before new proposal initialization";
+                  if (abs(diff.point[dim]) > tolerance) {
+                    if (abs(abs(h.center.point[dim] - round(h.center.point[dim]))-0.5) <= tolerance) {
+                      //assert rhombsOK(incomplete):
+                      //"Rhombs broken by if statements w/in new proposal init";
+                      new_center.point[dim] = h.center.point[dim];
                     } else {
-                      // We decided these were adjacent faces, so there shouldn't be an "else"
-                      println(abs(abs(h.center.point[dim] - round(h.center.point[dim]))-0.5));
-                      println(abs(abs(i.center.point[dim] - round(i.center.point[dim]))-0.5));
-                    assert 1 == 0 : 
-                      "Adjacent faces had no half-off dimensions";
+                      //assert rhombsOK(incomplete):
+                      //"Rhombs broken by first if statement w/in new proposal init";
+                      if (abs(abs(i.center.point[dim] - round(i.center.point[dim]))-0.5) <= tolerance) {
+                        //assert rhombsOK(incomplete):
+                        //"Rhombs broken before assignment to new_center";
+                        new_center.point[dim] = i.center.point[dim];
+                        //assert rhombsOK(incomplete):
+                        //"Rhombs broken by assignment to new_center";
+                      } else {
+                        // We decided these were adjacent faces, so there shouldn't be an "else"
+                        println(abs(abs(h.center.point[dim] - round(h.center.point[dim]))-0.5));
+                        println(abs(abs(i.center.point[dim] - round(i.center.point[dim]))-0.5));
+                      assert 1 == 0 : 
+                        "Adjacent faces had no half-off dimensions";
+                      }
                     }
                   }
+                  //assert rhombsOK(incomplete):
+                  //"Rhombs broken by new proposal initialization";
                 }
-                assert rhombsOK(incomplete):
-                "Rhombs broken by new proposal initialization";
+                proposal = new Block(new_center);
+                proposal.sides.add(h);
+                proposal.sides.add(i);
+                proposed.add(proposal);
+                have_proposal = true;
               }
-              proposal = new Block(new_center);
-              proposal.sides.add(h);
-              proposal.sides.add(i);
-              proposed.add(proposal);
-              have_proposal = true;
             }
           } else if (abs(h.center.minus(i.center).length() - 1.0) <= tolerance) {
             Point6D diff = i.center.minus(h.center);
@@ -950,23 +957,45 @@ public class Quasicrystal {
         }
       }// done with all i
     }
-    ArrayList<Block> complete = new ArrayList<Block>();
+    if (test_assertions) {
+      for (Rhomb i : incomplete) {
+        assert i.parents.size() == 1 : "Supposedly single-parent rhomb w/ two parents after proposal stage";
+      }
+    }
+    BlockStore complete = new BlockStore(0.01);
     for (Block proposal : proposed) {
+      // TODO It's looking like there are probably cases where the block has more than 6 proposed sides
+      // but would still be OK to add
       if (proposal.sides.size() == 6) {
         boolean block_exists = false;
+        boolean block_sane = true;
+        Point6D center_calc = new Point6D(0,0,0,0,0,0);
         for (Rhomb face : proposal.sides) {
+          center_calc = center_calc.plus(face.center);
           int samecount = 0;
           for (Rhomb face2 : proposal.sides) {
-            if (face == face2) samecount++;
+            if (face.parents.get(0) == face2.parents.get(0)) samecount++;
           }
           if (samecount != 1) {
             block_exists = true;
+            // TODO below assertion fails. Why do I actually get samecount > 1?
+            //assert blocks.contains(proposal) : "block might have been weird, but wasn't already there";
           }
         }
-        if (!block_exists)
+        center_calc = center_calc.times(1.0/6);
+        if (center_calc.minus(proposal.center).length() > 0.001) block_sane = false;
+        if (picky_assertions) {
+          assert block_sane : "Block appears malformed for unknown reason.";
+        }
+        if (block_sane && !block_exists)
           complete.add(proposal);
       }
       // TODO We could fill in some faces, e.g. if we had 5 of 6.
+    }
+    if (test_assertions) {
+      for (Rhomb i : incomplete) {
+        assert i.parents.size() == 1 : "Supposedly single-parent rhomb w/ two parents after filtering proposals";
+      }
     }
     if (picky_assertions) {
       assert complete.size() == 0 :
@@ -977,7 +1006,7 @@ public class Quasicrystal {
     // TODO We let BlockStore deal with our redundancy. Would be faster w/o redundancy
     assert blocksOK(blocks.list): 
     "Blocks compromised before adding any";
-    for (Block block : complete) {
+    for (Block block : complete.list) {
       assert blocksOK(blocks.list): 
       "Irregularity occurred prev. time thru loop";
       Block canonical_block = blocks.add(block);
@@ -985,10 +1014,23 @@ public class Quasicrystal {
       "Should not have added block, it's wonky";
       if (block == canonical_block) {
         // block being added for the first time. Add block to its faces.
+        for (Rhomb face : block.sides) {// Trying to figure out what's going wrong
+          assert (face.parents.size() == 1) :
+          "If block is being added for the first time, how does its face have two parents?"; //<>//
+          int samecount = 0;
+          for (Rhomb face2 : block.sides) {
+            if (face.parents.get(0) == face2.parents.get(0)) samecount++;
+          }
+          if (samecount != 1) {
+            print("Faces already weird");
+          }
+        }
         for (Rhomb face : block.sides) {
           block.next.add(face.parents.get(0));
+          assert face.parents.size() == 1 : 
+          "Face already had two parents"; //<>//
           assert face.parents.get(0).next.get(face.parents.get(0).sides.indexOf(face)) == null :
-          "Looks like something is up with our alignment of next and sides";
+          "Looks like something is up with our alignment of next and sides"; //<>//
           face.parents.get(0).next.set(face.parents.get(0).sides.indexOf(face), block);
           face.parents.add(block);
         }
