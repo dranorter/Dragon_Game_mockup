@@ -9,6 +9,7 @@
  *****************************************/
 //import queasycam.*;
 boolean test_assertions = true;
+boolean picky_assertions = false;
 
 float driftspeed = 1;
 

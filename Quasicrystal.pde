@@ -1,4 +1,4 @@
-/********************************************** //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>//
+/********************************************** //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>//
  *
  * Implements a 3D quasicrystal tiling within 
  * given rectangular bounds.
@@ -12,7 +12,7 @@ public class Quasicrystal {
   // Radius is roughly how many cells will be rendered in
   float radius = 4;
   // Tolerance is used when checking whether two vertices are equal.
-  float tolerance = 0.01;
+  float tolerance = 0.000;
 
   Point6D fivedeex = new Point6D(new float[]{random(-1, 1), random(-1, 1), random(-1, 1), random(-1, 1), random(-1, 1), random(-1, 1)});
   Point6D fivedeey = new Point6D(new float[]{random(-1, 1), random(-1, 1), random(-1, 1), random(-1, 1), random(-1, 1), random(-1, 1)});
@@ -117,6 +117,7 @@ public class Quasicrystal {
       Point6D plane5Dw = new Point6D(0, 0, 0, 0, 0, 0);
       plane5Dw.point[planeDim] = 1;
 
+      // Strict comparison because values on the boundary don't contribute cells.
       for (float planeLoc = planestarts[planeDim]; planeLoc < planeends[planeDim]; planeLoc += 1) {
 
         // We are on a plane which slices the rectangular prism which is our 3D space.
@@ -250,17 +251,16 @@ public class Quasicrystal {
         //for (int lineDim = 0; lineDim < 6; lineDim++) {
         for (int lineDim = planeDim; lineDim < 6; lineDim++) {
           //Skip this iteration if we're on the dimension which generated the plane.
-          if (lineDim == planeDim) continue;
+          //if (lineDim == planeDim) continue; //Should end up skipped automatically TODO does that make sense
 
-          for (float lineLoc = dimstarts[lineDim]; lineLoc <= dimends[lineDim]; lineLoc += 1) {
+          // Requiring strict lineLoc < dimends[lineDim] because an intersection at the very edge won't contribute cells. (Was lineLoc <= dimends[lineDim] for a long time)
+          for (float lineLoc = dimstarts[lineDim]; lineLoc < dimends[lineDim]; lineLoc += 1) {
             // We are on a line where the Nth 5D coordinate takes value dimN (and because of the plane, planeDimth coordinate takes value planeN).
             // Find where this line enters and leaves the cut.
             // "enter" and "exit" will be points in proper 5D, ie, we include the offset "plane5Dw"
 
             float[] enter = new float[6];
             float[] exit = new float[6];
-            //float[] enter2D = new float[2];
-            //float[] exit2D = new float[2];
 
 
             // We have corners to work with, not edges; strategy will be to generate the line segments between 
@@ -433,6 +433,7 @@ public class Quasicrystal {
               if (d != lineDim && d != planeDim) {
                 // We want to catch any included half-integer values, so we'll subtract 0.5 and take all integer values of that range.
                 for (int i = ceil(min(enter[d], exit[d])-0.5); i <= max(enter[d], exit[d])-0.5; i++) {//I changed from floor to ceil here. We don't want an intersection which isn't onscreen.//TODO This change fixed stuff but I don't see why it did! Reverse engineer bug!!
+                  // We measure dist from enter[d] since linevector is measured from that point.
                   float dist = ((float(i)+0.5)-(enter[d]))/linevector[d];
                 assert dist > 0 && dist < 1 : 
                   "Distance to crossing outside of expected range.";
@@ -564,8 +565,38 @@ public class Quasicrystal {
               // After some additional testing I'm fairly confident the issue is only happening for one specific block
               // type (same shape and orientation each time). Any given grid contains several vaguely triangular clusters
               // of missing blocks. The edges of these triangles seem to meet edges of the cube I'm generating within.
+              // CHANGES SINCE 6/12/20:
+              // >> fivedee0, fivedee1, and fivedee2 aren't directly normalized inside this constructor anymore.
+              //    I could check whether this one is responsible pretty easily. At the same time I think I made
+              //    this change immediately *after* noticing the bug, so it's probably not responsible.
+              // >> cells was made a VertexStore.
+              //    I could change Point6DStore to use the old exhaustive searches in order to check all
+              //    these changes at once. Or make a LazyPoint6DStore class and change just VertexStore
+              //    to be a subclass of it.
+              // >> rhombs was made a RhombStore.
+              // >> blocks was made a BlockStore.
+              // >> PointStore intersections was introduced.
+              // >> blocks is cleared out when cells and rhombs are.
+              // >> renamed: planeN > planeLoc
+              // >> renamed: N > lineDim
+              // >> renamed: dimN > lineLoc
+              // >> renamed: intersections > segment_intersections
+              //    Any chance some references to "intersections" should be "segment_intersections" or vice versa?
+              // >> Replaced mechanism for calculating enter and exit. Old version, which relied solely on "metric",
+              //    was choosing incorrect elements of segment_intersection, which caused early line termination.
+              //    (This was creating assertion errors later on rather than leaving holes in the grid.) Reason for
+              //    early termination undiagnosed.
+              // >> Added many assertions.
+              //    Theoretically an assertion could have a side-effect. Could test this change simply by turning 
+              //    assertions off.
+              // >> The stepping cells, left_downCell &c., are all Vertex objects now instead of Point6D objects.
+              // >> New block / new rhombus initialization stuff was reordered to accommodate use of Point6DStore
+              // >> Many ".copy()" calls removed from the cells (within aforementioned initialization) in order 
+              //    to ensure the Vertex objects assigned as vertices to our rhombuses are the same ones which end
+              //    up in the list of cells.
               // The bug isn't affected by starting "lineDim" at zero instead of the (default) initialization of 
               // lineDim = planeDim.
+              // The bug isn't fixed by moving the tolerance down to 0.0001 or down to zero.
 
               for (int i = 0; i < dists.size(); i++) {
                 //TODO If we cross several lines at once, this is the place to deal with it.
@@ -720,20 +751,7 @@ public class Quasicrystal {
                 // I'm going to skip determination of prev and next for now, as well as skip properly 
                 // initializing axis1 and axis2 for the individual rhombuses.
 
-                // TODO This part would be faster if I had the blocks
-                // in some sort of data structure so they could be
-                // found. non-exhaustively.
-                //boolean blockregistered = false;
                 Block prev_block = blocks.add(block);
-                /*for (Block b : (blocks)) {
-                 Point6D difference = b.center.minus(block.center);
-                 float maxdivergence = max(new float[]{abs(difference.point[0]), abs(difference.point[1]), abs(difference.point[2]), abs(difference.point[3]), abs(difference.point[4]), abs(difference.point[5])});
-                 if (maxdivergence < tolerance) {
-                 blockregistered = true;
-                 prev = b;
-                 break;
-                 }
-                 }*/
                 if (prev_block == block) {
                   // block was new; do setup
                   //blocks.add(block);
@@ -818,29 +836,220 @@ public class Quasicrystal {
                     "A corner remains unregistered in an unused block object";
                   }
                 }
-                /*for (Rhomb face : block.sides) {
-                 PVector corner1_3D = new PVector(face.corner1.minus(fivedeew).dot(fivedee0), face.corner1.minus(fivedeew).dot(fivedee1), face.corner1.minus(fivedeew).dot(fivedee2));
-                 PVector corner2_3D = new PVector(face.corner2.minus(fivedeew).dot(fivedee0), face.corner2.minus(fivedeew).dot(fivedee1), face.corner2.minus(fivedeew).dot(fivedee2));
-                 PVector corner3_3D = new PVector(face.corner3.minus(fivedeew).dot(fivedee0), face.corner3.minus(fivedeew).dot(fivedee1), face.corner3.minus(fivedeew).dot(fivedee2));
-                 PVector corner4_3D = new PVector(face.corner4.minus(fivedeew).dot(fivedee0), face.corner4.minus(fivedeew).dot(fivedee1), face.corner4.minus(fivedeew).dot(fivedee2));
-                 beginShape();
-                 vertex(corner1_3D.x, corner1_3D.y, corner1_3D.z);
-                 vertex(corner2_3D.x, corner2_3D.y, corner2_3D.z);
-                 vertex(corner3_3D.x, corner3_3D.y, corner3_3D.z);
-                 vertex(corner4_3D.x, corner4_3D.y, corner4_3D.z);
-                 endShape(CLOSE);
-                 }*/
-              }
-              // Processed last crossing
+              }// Processed last crossing
               assert (new Point6D(linevector)).length()*(1 - sorteddists[dists.size()-1]) < sqrt(6): 
               "Didn't traverse whole line";
+            }// done with if(dists.size() != 0
+          }// done with all lineLoc's on this lineDim
+          assert blocksOK(blocks.list): 
+          "Problem with a block after lineDim"+lineDim;
+        }// done with all lineDims on this plane
+      }// done with this plane's positions
+    }// done with all planes
+    // Hunt down and fill in remaining holes.
+    println("Checking for holes...");
+    assert rhombsOK(rhombs.list) : 
+    "Rhombs broken before hole search";
+    assert blocksOK(blocks.list): 
+    "Blocks compromised before hole search";
+    ArrayList<Rhomb> incomplete = new ArrayList<Rhomb>();
+    for (Rhomb face : (Iterable<Rhomb>)rhombs) {
+      if (face.parents.size() == 1) {
+        incomplete.add(face);
+      }
+    }
+    assert rhombsOK(rhombs.list) : 
+    "Rhombs broken by initialization of 'incomplete' list";
+    ArrayList<Block> proposed = new ArrayList<Block>();
+    for (Rhomb h : incomplete) {
+      boolean have_proposal = false;
+      Block proposal = new Block(new Vertex(0, 0, 0, 0, 0, 0));
+      assert rhombsOK(incomplete) : 
+      "Rhombs broken at start of h's loop";
+      for (Rhomb i : incomplete) {
+        if (h != i && max(h.center.minus(i.center).point) < 2) {// TODO This could be wrong cutoff once non-rhombohedron cells are included
+          if (abs(h.center.minus(i.center).length() - (sqrt(2)/2)) <= tolerance) {
+            assert rhombsOK(incomplete):
+            "Rhombs broken by if statements";
+            // Adjacent face
+            if (have_proposal) {
+              proposal.sides.add(i);
+              assert rhombsOK(incomplete):
+              "Rhombs broken by adding to proposal";
+            } else {
+              // Gotta initialize proposal
+              Vertex new_center = new Vertex(h.center.copy().point);
+              Point6D diff = i.center.minus(h.center);
+              // Where h and i differ, take the one that's a half-integer rather than
+              // the one that's an integer.
+              for (int dim = 0; dim < 6; dim++) {
+                assert rhombsOK(incomplete):
+                "Rhombs broken before new proposal initialization";
+                if (abs(diff.point[dim]) > tolerance) {
+                  if (abs(abs(h.center.point[dim] - round(h.center.point[dim]))-0.5) <= tolerance) {
+                    assert rhombsOK(incomplete):
+                    "Rhombs broken by if statements w/in new proposal init";
+                    new_center.point[dim] = h.center.point[dim];
+                  } else {
+                    assert rhombsOK(incomplete):
+                    "Rhombs broken by first if statement w/in new proposal init";
+                    if (abs(abs(i.center.point[dim] - round(i.center.point[dim]))-0.5) <= tolerance) {
+                      assert rhombsOK(incomplete):
+                      "Rhombs broken before assignment to new_center";
+                      new_center.point[dim] = i.center.point[dim];
+                      assert rhombsOK(incomplete):
+                      "Rhombs broken by assignment to new_center";
+                    } else {
+                      // We decided these were adjacent faces, so there shouldn't be an "else"
+                      println(abs(abs(h.center.point[dim] - round(h.center.point[dim]))-0.5));
+                      println(abs(abs(i.center.point[dim] - round(i.center.point[dim]))-0.5));
+                    assert 1 == 0 : 
+                      "Adjacent faces had no half-off dimensions";
+                    }
+                  }
+                }
+                assert rhombsOK(incomplete):
+                "Rhombs broken by new proposal initialization";
+              }
+              proposal = new Block(new_center);
+              proposal.sides.add(h);
+              proposal.sides.add(i);
+              proposed.add(proposal);
+              have_proposal = true;
             }
+          } else if (abs(h.center.minus(i.center).length() - 1.0) <= tolerance) {
+            Point6D diff = i.center.minus(h.center);
+            // In 4D and up, a whole-number difference could nonetheless be along a diagonal.
+            // IE, 1.0 can show up if the rhombuses differ by 0.5 in exactly four dimensions.
+            // Check that this isn't happening.
+            if (max(diff.point) > 0.5 || min(diff.point) < -0.5) {
+              // We have an opposite face
+              if (have_proposal) {
+                proposal.sides.add(i);
+              } else {
+                // Gotta initialize proposal
+                Vertex new_center = new Vertex(h.center.copy().point);
+                // Where h and i differ, take value between the two.
+                for (int dim = 0; dim < 6; dim++) {
+                  if (abs(diff.point[dim]) > tolerance) {
+                    new_center.point[dim] = (h.center.point[dim] + i.center.point[dim])/2;
+                    assert rhombsOK(rhombs.list) : 
+                    "Rhombs broken...";
+                    assert abs(abs(h.center.point[dim] - i.center.point[dim]) - 1.0) <= tolerance :
+                    "Opposite faces were off by "+abs(h.center.point[dim] - i.center.point[dim]);
+                  }
+                }
+                proposal = new Block(new_center);
+                proposal.sides.add(h);
+                proposal.sides.add(i);
+                proposed.add(proposal);
+                have_proposal = true;
+              }
+            }
+          }
+        }
+      }// done with all i
+    }
+    ArrayList<Block> complete = new ArrayList<Block>();
+    for (Block proposal : proposed) {
+      if (proposal.sides.size() == 6) {
+        boolean block_exists = false;
+        for (Rhomb face : proposal.sides) {
+          int samecount = 0;
+          for (Rhomb face2 : proposal.sides) {
+            if (face == face2) samecount++;
+          }
+          if (samecount != 1) {
+            block_exists = true;
+          }
+        }
+        if (!block_exists)
+          complete.add(proposal);
+      }
+      // TODO We could fill in some faces, e.g. if we had 5 of 6.
+    }
+    if (picky_assertions) {
+      assert complete.size() == 0 :
+      "Discovered "+complete.size()+" cell-shaped holes in the tiling.";
+    } else {
+      println("Filling "+complete.size()+" holes");
+    }
+    // TODO We let BlockStore deal with our redundancy. Would be faster w/o redundancy
+    assert blocksOK(blocks.list): 
+    "Blocks compromised before adding any";
+    for (Block block : complete) {
+      assert blocksOK(blocks.list): 
+      "Irregularity occurred prev. time thru loop";
+      Block canonical_block = blocks.add(block);
+      assert blocksOK(blocks.list): 
+      "Should not have added block, it's wonky";
+      if (block == canonical_block) {
+        // block being added for the first time. Add block to its faces.
+        for (Rhomb face : block.sides) {
+          block.next.add(face.parents.get(0));
+          assert face.parents.get(0).next.get(face.parents.get(0).sides.indexOf(face)) == null :
+          "Looks like something is up with our alignment of next and sides";
+          face.parents.get(0).next.set(face.parents.get(0).sides.indexOf(face), block);
+          face.parents.add(block);
+        }
+        assert blocksOK(blocks.list): "Seems like we didn't add to next properly.";
+      }
+    }
+  }// done with Quasicrystal constructor
+
+  boolean rhombsOK(ArrayList<Rhomb> rhombs) {
+    for (Rhomb r : rhombs) {
+      Rhomb testrhomb = new Rhomb(r.corner1, r.corner2, r.corner3, r.corner4);
+      if (testrhomb.center.minus(r.center).length() > 0.0001) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  boolean blocksOK(ArrayList<Block> blocks) {
+    for (Block b : blocks) {
+      if (b.next.size() > 0 && b.next.size() != b.sides.size()) {
+        return false; //<>//
+      }
+      for (Block neighbor : b.next) {
+        if (neighbor != null) {
+          int samecount = 0;
+          for (Block neighbor2 : b.next) {
+            if (neighbor == neighbor2) samecount++;
+          }
+          if (samecount != 1) 
+            return false; //<>//
+        }
+      }
+      for (Rhomb r : b.sides) {
+        int samecount = 0;
+        for (Rhomb r2 : b.sides) {
+          if (r == r2) samecount++;
+        }
+        if (samecount != 1)
+          return false; //<>//
+        if (r.parents.size() == 2) {
+          // test that the two parents make sense
+          int index = 0;
+          while (index < r.parents.size() && r.parents.get(index) == b) index++;
+          if (index > 1)
+            return false; //<>//
+          // TODO test that neighbor is adjacent and
+          // isn't overlapping
+        } else {
+          assert r.parents.size() == 1 : 
+          "Rhombus with 3 or more parents";
+          if (b.next.size() > 0 && b.next.get(b.sides.indexOf(r)) != null) {
+            // Rhombus is w/o a parent but block has a corresponding "next"
+            return false; //<>//
           }
         }
       }
     }
+    return true;
   }
-}
+}// done with Quasicrystal class
 
 class Block {
   ArrayList<Integer> axes;
@@ -1044,6 +1253,12 @@ class Rhomb {
     corner3 = c3;
     corner4 = c4;
     center = (c1.plus(c2.plus(c3.plus(c4)))).times(0.25);
+    if (test_assertions) {
+      for (int i = 0; i < 6; i++) {
+        assert abs(center.point[i]-round(center.point[i])) == 0.0 || abs(center.point[i]-round(center.point[i])) == 0.5 :
+        "Created a rhombus with a weird center point";
+      }
+    }
     a1prev = null;
     a2prev = null;
     a1next = null;
@@ -1163,7 +1378,7 @@ abstract class Point6DStore<V> implements Iterable {
       boolean came_up_empty = true;
       for (java.util.Enumeration<Float> k = storage[i].keys(); k.hasMoreElements(); ) {
         float nextkey = k.nextElement();
-        if (abs(nextkey - key.point[i]) < tolerance) {
+        if (abs(nextkey - key.point[i]) <= tolerance) {
           hits[i].add(nextkey);
           came_up_empty = false;
         }
@@ -1207,7 +1422,7 @@ abstract class Point6DStore<V> implements Iterable {
       boolean came_up_empty = true;
       for (java.util.Enumeration<Float> k = storage[i].keys(); k.hasMoreElements(); ) {
         float nextkey = k.nextElement();
-        if (abs(nextkey - key.point[i]) < tolerance) {
+        if (abs(nextkey - key.point[i]) <= tolerance) {
           hits[i].add(nextkey);
           came_up_empty = false;
         }
@@ -1270,7 +1485,7 @@ abstract class Point6DStore<V> implements Iterable {
       boolean came_up_empty = true;
       for (java.util.Enumeration<Float> k = storage[i].keys(); k.hasMoreElements(); ) {
         float nextkey = k.nextElement();
-        if (abs(nextkey - key.point[i]) < tolerance) {
+        if (abs(nextkey - key.point[i]) <= tolerance) {
           hits[i].add(nextkey);
           came_up_empty = false;
         }
@@ -1306,7 +1521,7 @@ abstract class Point6DStore<V> implements Iterable {
   }
 
   boolean equals(Point6D a, Point6D b) {
-    return (max((a).minus((b)).abs().point) < tolerance);
+    return (max((a).minus((b)).abs().point) <= tolerance);
   }
 
   abstract Point6D location(V value);
