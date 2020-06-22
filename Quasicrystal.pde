@@ -1,4 +1,4 @@
-/********************************************** //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>//
+/********************************************** //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>// //<>//
  *
  * Implements a 3D quasicrystal tiling within 
  * given rectangular bounds.
@@ -251,7 +251,7 @@ public class Quasicrystal {
         //for (int lineDim = 0; lineDim < 6; lineDim++) {
         for (int lineDim = planeDim; lineDim < 6; lineDim++) {
           //Skip this iteration if we're on the dimension which generated the plane.
-          //if (lineDim == planeDim) continue; //Should end up skipped automatically TODO does that make sense
+          if (lineDim == planeDim) continue; //Should end up skipped automatically TODO does that make sense
 
           // Requiring strict lineLoc < dimends[lineDim] because an intersection at the very edge won't contribute cells. (Was lineLoc <= dimends[lineDim] for a long time)
           for (float lineLoc = dimstarts[lineDim]; lineLoc < dimends[lineDim]; lineLoc += 1) {
@@ -768,7 +768,7 @@ public class Quasicrystal {
                     if (test_assertions) {
                       float side_distance = block.sides.get(side).center.minus(block.center).length();
                       assert(side_distance == 0.5) : 
-                      "Side is wrong distance from center";
+                      "Side is wrong distance from center"; //<>//
                     }
                     //boolean rhombregistered = false;
                     // Rather than tracking direction and next vs. prev,
@@ -1016,7 +1016,7 @@ public class Quasicrystal {
         // block being added for the first time. Add block to its faces.
         for (Rhomb face : block.sides) {// Trying to figure out what's going wrong
           assert (face.parents.size() == 1) :
-          "If block is being added for the first time, how does its face have two parents?"; //<>//
+          "If block is being added for the first time, how does its face have two parents?"; //<>// //<>//
           int samecount = 0;
           for (Rhomb face2 : block.sides) {
             if (face.parents.get(0) == face2.parents.get(0)) samecount++;
@@ -1028,9 +1028,9 @@ public class Quasicrystal {
         for (Rhomb face : block.sides) {
           block.next.add(face.parents.get(0));
           assert face.parents.size() == 1 : 
-          "Face already had two parents"; //<>//
+          "Face already had two parents"; //<>// //<>//
           assert face.parents.get(0).next.get(face.parents.get(0).sides.indexOf(face)) == null :
-          "Looks like something is up with our alignment of next and sides"; //<>//
+          "Looks like something is up with our alignment of next and sides"; //<>// //<>//
           face.parents.get(0).next.set(face.parents.get(0).sides.indexOf(face), block);
           face.parents.add(block);
         }
@@ -1052,7 +1052,7 @@ public class Quasicrystal {
   boolean blocksOK(ArrayList<Block> blocks) {
     for (Block b : blocks) {
       if (b.next.size() > 0 && b.next.size() != b.sides.size()) {
-        return false; //<>//
+        return false; //<>// //<>//
       }
       for (Block neighbor : b.next) {
         if (neighbor != null) {
@@ -1061,7 +1061,7 @@ public class Quasicrystal {
             if (neighbor == neighbor2) samecount++;
           }
           if (samecount != 1) 
-            return false; //<>//
+            return false; //<>// //<>//
         }
       }
       for (Rhomb r : b.sides) {
@@ -1070,13 +1070,13 @@ public class Quasicrystal {
           if (r == r2) samecount++;
         }
         if (samecount != 1)
-          return false; //<>//
+          return false; //<>// //<>//
         if (r.parents.size() == 2) {
           // test that the two parents make sense
           int index = 0;
           while (index < r.parents.size() && r.parents.get(index) == b) index++;
           if (index > 1)
-            return false; //<>//
+            return false; //<>// //<>//
           // TODO test that neighbor is adjacent and
           // isn't overlapping
         } else {
@@ -1084,7 +1084,7 @@ public class Quasicrystal {
           "Rhombus with 3 or more parents";
           if (b.next.size() > 0 && b.next.get(b.sides.indexOf(r)) != null) {
             // Rhombus is w/o a parent but block has a corresponding "next"
-            return false; //<>//
+            return false; //<>// //<>//
           }
         }
       }
