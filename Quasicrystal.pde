@@ -9,10 +9,11 @@
 
 // TODO want different grids easily available to construct.
 public class Quasicrystal {
-  // Radius is roughly how many cells will be rendered in
+  // Radius determines side length of cube, so how many
+  // be found scales as its cube.
   float radius = 4;
   // Tolerance is used when checking whether two vertices are equal.
-  float tolerance = 0.000;
+  float tolerance = 0.0001;
 
   Point6D fivedeex = new Point6D(new float[]{random(-1, 1), random(-1, 1), random(-1, 1), random(-1, 1), random(-1, 1), random(-1, 1)});
   Point6D fivedeey = new Point6D(new float[]{random(-1, 1), random(-1, 1), random(-1, 1), random(-1, 1), random(-1, 1), random(-1, 1)});
@@ -30,10 +31,11 @@ public class Quasicrystal {
   PointStore intersections = new PointStore(tolerance);
 
   public Quasicrystal(Point6D w, Point6D x, Point6D y, Point6D z, float r) {
-    fivedeex = x;
-    fivedeey = y;
-    fivedeez = z;
-    fivedeew = w;
+    // x, y, and z can be non-orthogonal and non-unit.
+    fivedeex = x.copy();
+    fivedeey = y.copy();
+    fivedeez = z.copy();
+    fivedeew = w.copy();
     radius = r;
     // these are the actual basis vectors: (making them orthogonal)
     //fivedee0 = fivedeex.normalized();
@@ -108,21 +110,10 @@ public class Quasicrystal {
     for (int planeDim = 0; planeDim < 6; planeDim++) {
       // Iterate over the value at which we hold planeDim constant
 
-
-      // Since all planes are just translations of one another, doing some setup before we land
-      // on a specific plane:
-
-      // Choosing an arbitrary origin for now. The slice could be various strange shapes so 
-      // it's not too useful to parameterize conveniently.
-      Point6D plane5Dw = new Point6D(0, 0, 0, 0, 0, 0);
-      plane5Dw.point[planeDim] = 1;
-
       // Strict comparison because values on the boundary don't contribute cells.
       for (float planeLoc = planestarts[planeDim]; planeLoc < planeends[planeDim]; planeLoc += 1) {
 
         // We are on a plane which slices the rectangular prism which is our 3D space.
-
-        plane5Dw.point[planeDim] = planeLoc;
 
         // Now we need to find all Voronoi cells of the 5D lattice which intersect our plane.
 
@@ -598,8 +589,8 @@ public class Quasicrystal {
               // lineDim = planeDim.
               // The bug isn't fixed by moving the tolerance down to 0.0001 or down to zero.
 
-              for (int i = 0; i < dists.size(); i++) {
-                //TODO If we cross several lines at once, this is the place to deal with it.
+              for (int i = 0; i < dists.size();) {// i gets incremented by the while loop
+                // If we cross several lines at once, this is the place to deal with it.
                 // They would have the same "dist" value (give or take floating point error) and
                 // would be sorted to be adjacent. Crossing those intersections in every possible
                 // order ought to generate all the vertices of the desired shape. It's interesting
@@ -631,7 +622,12 @@ public class Quasicrystal {
                 // What about up vs. down? Well, I guess they just get grouped by left and right. These 
                 // sixteen Voronoi cells indeed intersect our space and generate those vertices; and the 
                 // vertices are connected in the way which this crossing order suggests.
-                // In this specific example (with 4 lines crossing), 
+                // In this specific example (with 4 lines crossing), we generate an octagonal prism,
+                // but we ignore the two octagons, assuming they'll be expanded out later. So a 
+                // weakness of this overall approach is that it only creates rhombic faces. If two
+                // of the lines within the crossing coincide, it would just try to choose an order
+                // rather than generating a higher-order face. (If the octagon were a proper face, all
+                // these lines would coincide in any plane but this one.)
                 /*if (i+1 < dists.size() && abs(dists.get(i) - dists.get(i+1)) < 0.01) {
                  println("Possible double-cross. Difference was "+(dists.get(i) - dists.get(i+1)));
                  println("Dimensions: "+dims.get(i)+", "+dims.get(i+1));
@@ -644,11 +640,9 @@ public class Quasicrystal {
                 int rightdim = sorteddims[i];
                 int rightdir = enter[rightdim] < exit[rightdim] ? 1 : -1;
 
-                // TODO Changed my mind on all this. I should step through the entire
-                // singularity in one instance of the loop so I can associate all the
-                // faces I generate to one cell. (That cell may exist or may not, and 
-                // if it does we still may need to add faces, which is different from
-                // the non-singular behavior.)
+                // step through the entire singularity in one instance of the loop so I can associate all the
+                // faces I generate to one cell. (That cell may exist or may not, and if it does we still
+                // may need to add faces, which is different from the non-singular behavior.)
                 // Find first and last crossing which are just this vertex' multiplicity.
                 int curvertex_min = i;
                 int curvertex_max = i;
@@ -659,183 +653,193 @@ public class Quasicrystal {
                 while (curvertex_min > 0 && sorteddists[i] - sorteddists[curvertex_min-1] < tolerance*tolerance) {
                   curvertex_min --;
                 }
+                assert curvertex_min == i : "inconsistent current vertex window";
                 while (curvertex_max+1 < dists.size() && abs(sorteddists[i] - sorteddists[curvertex_max+1]) < tolerance*tolerance) {//TODO right way of handling tolerance here? More generally, ought to start coming up with smarter choices of tolerance numbers
                   curvertex_max ++;
                 }
-                // TODO Now based on our current index within a multiple vertex, assign 
-                // differing values to leftdim and leftdir according to corrent ordering
-                // of the lines.
-
-
-                Vertex oldLeftDownCell = left_downCell;
-                Vertex oldRightDownCell = right_downCell;
-                Vertex oldLeftUpCell = left_upCell;
-                Vertex oldRightUpCell = right_upCell;
-
-                //TODO Floating point error could build up as I add and subtract integers here; could be better off using integers.
-                left_downCell = left_downCell.copy();
-                right_downCell = right_downCell.copy();
-                left_upCell = left_upCell.copy();
-                right_upCell = right_upCell.copy();
-                left_downCell.point[leftdim] += 1*leftdir;
-                right_downCell.point[rightdim] += 1*rightdir;
-                left_upCell.point[leftdim] += 1*leftdir;
-                right_upCell.point[rightdim] += 1*rightdir;
-
-                assert left_downCell.minus(oldLeftDownCell).length() == 1.0: 
-                "Wrong nldc-oldc";
-
-                //Point6D newintersection = enterp.plus((exitp.minus(enterp)).times(sorteddists[i]));
-                /*println(oldLeftDownCell.minus(newintersection).length());
-                 println(oldRightDownCell.minus(newintersection).length());
-                 println(oldLeftUpCell.minus(newintersection).length());
-                 println(oldRightUpCell.minus(newintersection).length());
-                 println(left_downCell.minus(newintersection).length());
-                 println(right_downCell.minus(newintersection).length());
-                 println(left_upCell.minus(newintersection).length());
-                 println(right_upCell.minus(newintersection).length());*/
-
-                left_downCell = cells.add(left_downCell);
-                right_downCell = cells.add(right_downCell);
-                left_upCell = cells.add(left_upCell);
-                right_upCell = cells.add(right_upCell);
-
-                assert cells.contains(oldLeftDownCell): 
-                "old cell missing from cells";
-                assert cells.contains(oldRightDownCell): 
-                "old cell missing from cells";
-                assert cells.contains(oldLeftUpCell): 
-                "old cell missing from cells";
-                assert cells.contains(oldRightUpCell): 
-                "old cell missing from cells";
-
-                // Our eight cell-centers define a parallelepiped (of course in 5D it's a cube). In dim N, the left cells 
-                // lie in the positive direction from the right. In planeDim, the up cells lie in the positive direction 
-                // from the down.
-                // In dim "dim", the new cells lie in the "dir" direction from the old.
-                // We want to note the parallelepiped, and order the corners according to a convention:
-                //Point6D corner1;//negative in both axes; (-.5,-.5)
-                //Point6D corner2;//(-.5,.5)
-                //Point6D corner3;//(.5,-.5)
-                //Point6D corner4;//(.5,.5)
-                // Actually can't use "dir". Gotta use the arbitrary score of the line we're crossing
-                /*Point6D xconst = new Point6D(fivedee0).times(1.0/fivedee0[dim]);
-                 Point6D yconst = new Point6D(fivedee1).times(1.0/fivedee1[dim]);
-                 float dir3 = xconst.dot(metric) < yconst.dot(metric) ? 1 : -1;
-                 float dir4 = xconst.point[N] < yconst.point[N] ? 1 : -1;
-                 Point6D unit = new Point6D(new float[]{0, 0, 0, 0, 0});
-                 unit.point[dim]=dir;*/
-                //Rhomb rhomb = (dir3*dir4 > 0) ? new Rhomb(oldRightCell, oldLeftCell, rightCell, leftCell) : new Rhomb(oldLeftCell, oldRightCell, leftCell, rightCell);
-                //Rhomb rhomb = (dir3 > 0) ? new Rhomb(oldRightCell, oldLeftCell, rightCell, leftCell) : new Rhomb(rightCell, leftCell, oldRightCell, oldLeftCell);
-
-                // Actually for now I'm going to ignore all that and do completely arbitrary directions.
-                // I'll try and fix it if it turns out those conventions still matter.
-                // TODO would just provide nice next/prev distinction.
-
-                ArrayList<Point6D> the_others = new ArrayList<Point6D>();
-                the_others.add(left_upCell);// TODO this is so many lines. how do i write it better
-                the_others.add(right_downCell);
-                the_others.add(right_upCell);
-                the_others.add(oldLeftDownCell);
-                the_others.add(oldRightDownCell);
-                the_others.add(oldLeftUpCell);
-                the_others.add(oldRightUpCell);
-                Block block = new Block(left_downCell.averageWith(the_others));
-                /*Want to initialize:
-                 ArrayList<Integer> axes;
-                 ArrayList<Block> prev;
-                 ArrayList<Block> next;
-                 ArrayList<Rhomb> sides;
-                 */
-
-                // I'm going to skip determination of prev and next for now, as well as skip properly 
-                // initializing axis1 and axis2 for the individual rhombuses.
-
-                Block prev_block = blocks.add(block);
-                if (prev_block == block) {
-                  // block was new; do setup
-                  //blocks.add(block);
-                  // This ordering of the axes - (N, planeDim, dim) - will be used when interpreting prev and next.
-                  // TODO Used leftdim here. Is that reasonable?
-                  block.axes = new ArrayList<Integer>(java.util.Arrays.asList(new Integer[]{lineDim, planeDim, leftdim}));
-                  block.sides.add(new Rhomb(oldLeftDownCell, oldRightDownCell, oldLeftUpCell, oldRightUpCell));// old face
-                  block.sides.add(new Rhomb(oldLeftDownCell, left_downCell, oldLeftUpCell, left_upCell));// left face
-                  block.sides.add(new Rhomb(right_downCell, left_downCell, right_upCell, left_upCell));// new face
-                  block.sides.add(new Rhomb(right_downCell, oldRightDownCell, right_upCell, oldRightUpCell));// right face
-                  block.sides.add(new Rhomb(oldLeftUpCell, oldRightUpCell, left_upCell, right_upCell));// up face
-                  block.sides.add(new Rhomb(oldLeftDownCell, oldRightDownCell, left_downCell, right_downCell));// down face
-                  for (int side = 0; side < block.sides.size(); side++) {
-                    if (test_assertions) {
-                      float side_distance = block.sides.get(side).center.minus(block.center).length();
-                      assert(side_distance == 0.5) : 
-                      "Side is wrong distance from center"; //<>//
+                
+                Point6D current_crossing = new Point6D(linevector).times(sorteddists[i]).plus(segenterp);
+                Block multi_block = new Block(current_crossing);
+                
+                while (i <= curvertex_max) {
+                  // TODO Now based on our current index within a multiple vertex, assign 
+                  // differing values to leftdim and leftdir according to corrent ordering
+                  // of the lines.
+  
+                  Vertex oldLeftDownCell = left_downCell;
+                  Vertex oldRightDownCell = right_downCell;
+                  Vertex oldLeftUpCell = left_upCell;
+                  Vertex oldRightUpCell = right_upCell;
+  
+                  //TODO Floating point error could build up as I add and subtract integers here; could be better off using integers.
+                  left_downCell = left_downCell.copy();
+                  right_downCell = right_downCell.copy();
+                  left_upCell = left_upCell.copy();
+                  right_upCell = right_upCell.copy();
+                  left_downCell.point[leftdim] += 1*leftdir;
+                  right_downCell.point[rightdim] += 1*rightdir;
+                  left_upCell.point[leftdim] += 1*leftdir;
+                  right_upCell.point[rightdim] += 1*rightdir;
+  
+                  assert left_downCell.minus(oldLeftDownCell).length() == 1.0: 
+                  "Wrong nldc-oldc";
+  
+                  //Point6D newintersection = enterp.plus((exitp.minus(enterp)).times(sorteddists[i]));
+                  /*println(oldLeftDownCell.minus(newintersection).length());
+                   println(oldRightDownCell.minus(newintersection).length());
+                   println(oldLeftUpCell.minus(newintersection).length());
+                   println(oldRightUpCell.minus(newintersection).length());
+                   println(left_downCell.minus(newintersection).length());
+                   println(right_downCell.minus(newintersection).length());
+                   println(left_upCell.minus(newintersection).length());
+                   println(right_upCell.minus(newintersection).length());*/
+  
+                  left_downCell = cells.add(left_downCell);
+                  right_downCell = cells.add(right_downCell);
+                  left_upCell = cells.add(left_upCell);
+                  right_upCell = cells.add(right_upCell);
+  
+                  assert cells.contains(oldLeftDownCell): 
+                  "old cell missing from cells";
+                  assert cells.contains(oldRightDownCell): 
+                  "old cell missing from cells";
+                  assert cells.contains(oldLeftUpCell): 
+                  "old cell missing from cells";
+                  assert cells.contains(oldRightUpCell): 
+                  "old cell missing from cells";
+  
+                  // Our eight cell-centers define a parallelepiped (of course in 5D it's a cube). In dim N, the left cells 
+                  // lie in the positive direction from the right. In planeDim, the up cells lie in the positive direction 
+                  // from the down.
+                  // In dim "dim", the new cells lie in the "dir" direction from the old.
+                  // We want to note the parallelepiped, and order the corners according to a convention:
+                  //Point6D corner1;//negative in both axes; (-.5,-.5)
+                  //Point6D corner2;//(-.5,.5)
+                  //Point6D corner3;//(.5,-.5)
+                  //Point6D corner4;//(.5,.5)
+                  // Actually can't use "dir". Gotta use the arbitrary score of the line we're crossing
+                  /*Point6D xconst = new Point6D(fivedee0).times(1.0/fivedee0[dim]);
+                   Point6D yconst = new Point6D(fivedee1).times(1.0/fivedee1[dim]);
+                   float dir3 = xconst.dot(metric) < yconst.dot(metric) ? 1 : -1;
+                   float dir4 = xconst.point[N] < yconst.point[N] ? 1 : -1;
+                   Point6D unit = new Point6D(new float[]{0, 0, 0, 0, 0});
+                   unit.point[dim]=dir;*/
+                  //Rhomb rhomb = (dir3*dir4 > 0) ? new Rhomb(oldRightCell, oldLeftCell, rightCell, leftCell) : new Rhomb(oldLeftCell, oldRightCell, leftCell, rightCell);
+                  //Rhomb rhomb = (dir3 > 0) ? new Rhomb(oldRightCell, oldLeftCell, rightCell, leftCell) : new Rhomb(rightCell, leftCell, oldRightCell, oldLeftCell);
+  
+                  // Actually for now I'm going to ignore all that and do completely arbitrary directions.
+                  // I'll try and fix it if it turns out those conventions still matter.
+                  // TODO would just provide nice next/prev distinction.
+  
+                  ArrayList<Point6D> the_others = new ArrayList<Point6D>();
+                  the_others.add(left_upCell);// TODO this is so many lines. how do i write it better
+                  the_others.add(right_downCell);
+                  the_others.add(right_upCell);
+                  the_others.add(oldLeftDownCell);
+                  the_others.add(oldRightDownCell);
+                  the_others.add(oldLeftUpCell);
+                  the_others.add(oldRightUpCell);
+                  Block block = new Block(left_downCell.averageWith(the_others));
+                  
+                  /*Want to initialize:
+                   ArrayList<Integer> axes;
+                   ArrayList<Block> prev;
+                   ArrayList<Block> next;
+                   ArrayList<Rhomb> sides;
+                   */
+  
+                  // I'm going to skip determination of prev and next for now, as well as skip properly 
+                  // initializing axis1 and axis2 for the individual rhombuses.
+  
+                  Block prev_block = blocks.add(block);
+                  if (prev_block == block) {
+                    // block was new; do setup
+                    //blocks.add(block);
+                    // This ordering of the axes - (N, planeDim, dim) - will be used when interpreting prev and next.
+                    // TODO Used leftdim here. Is that reasonable?
+                    block.axes = new ArrayList<Integer>(java.util.Arrays.asList(new Integer[]{lineDim, planeDim, leftdim}));
+                    block.sides.add(new Rhomb(oldLeftDownCell, oldRightDownCell, oldLeftUpCell, oldRightUpCell));// old face
+                    block.sides.add(new Rhomb(oldLeftDownCell, left_downCell, oldLeftUpCell, left_upCell));// left face //<>//
+                    block.sides.add(new Rhomb(right_downCell, left_downCell, right_upCell, left_upCell));// new face
+                    block.sides.add(new Rhomb(right_downCell, oldRightDownCell, right_upCell, oldRightUpCell));// right face
+                    block.sides.add(new Rhomb(oldLeftUpCell, oldRightUpCell, left_upCell, right_upCell));// up face
+                    block.sides.add(new Rhomb(oldLeftDownCell, oldRightDownCell, left_downCell, right_downCell));// down face
+                    for (int side = 0; side < block.sides.size(); side++) {
+                      if (test_assertions) {
+                        float side_distance = block.sides.get(side).center.minus(block.center).length();
+                        assert(side_distance == 0.5) : 
+                        "Side is wrong distance from center";
+                      }
+                      //boolean rhombregistered = false;
+                      // Rather than tracking direction and next vs. prev,
+                      // for now I'm just going to rely on rhombs' ordering in "sides"
+                      // lining up with neighboring blocks' ordering in "next".
+                      Rhomb prev_rhomb = rhombs.add(block.sides.get(side));
+                      if (prev_rhomb != block.sides.get(side)) {
+                        assert prev_rhomb.parents.size() == 1 : 
+                        "Rhombus already has two parents";
+                        // Rhomb already existed.
+                        block.sides.set(side, prev_rhomb);
+                        // Rhombus must already have one parent.
+                        Block neighbor = prev_rhomb.parents.get(0);
+                        block.next.add(neighbor);
+                        neighbor.next.set(neighbor.sides.indexOf(prev_rhomb), block);
+                        prev_rhomb.parents.add(block);
+                      } else {
+                        // New rhombus
+                        // Keep lists even w/ null elements
+                        block.next.add(null);
+                        prev_rhomb.parents.add(block);
+                        assert prev_rhomb.parents.size() == 1 : 
+                        "Rhombus already has two parents";
+                        assert block.sides.get(side).parents.size() == 1 : 
+                        "Rhombus already has two parents, and something odd is happening with RhombStore";
+                      }
+                      assert prev_rhomb == block.sides.get(side) : 
+                      "Somehow didn't fix a mismatch";
+                      assert rhombs.contains(block.sides.get(side)) : 
+                      "RhombStore doing something weird";
+                      assert prev_rhomb == rhombs.add(prev_rhomb) : 
+                      "RhombStore doing something weird";
+                      /*for (Rhomb rh : rhombs) {
+                       Point6D difference = block.sides.get(side).center.minus(rh.center);
+                       float maxdivergence = max(new float[]{abs(difference.point[0]), abs(difference.point[1]), abs(difference.point[2]), abs(difference.point[3]), abs(difference.point[4]), abs(difference.point[5])});
+                       if (maxdivergence < tolerance) {
+                       // Rhombus already exists.
+                       block.sides.set(side, rh);
+                       // Rhombus must have one parent.
+                       Block neighbor = rh.parents.get(0);
+                       block.next.add(neighbor);
+                       neighbor.next.set(neighbor.sides.indexOf(rh), block);
+                       rh.parents.add(block);
+                       rhombregistered = true;
+                       break;
+                       }
+                       }
+                       if (!rhombregistered) {
+                       rhombs.add(block.sides.get(side));
+                       // Keep lists even w/ null elements
+                       block.next.add(null);
+                       block.sides.get(side).parents.add(block);
+                       }*/
                     }
-                    //boolean rhombregistered = false;
-                    // Rather than tracking direction and next vs. prev,
-                    // for now I'm just going to rely on rhombs' ordering in "sides"
-                    // lining up with neighboring blocks' ordering in "next".
-                    Rhomb prev_rhomb = rhombs.add(block.sides.get(side));
-                    if (prev_rhomb != block.sides.get(side)) {
-                      assert prev_rhomb.parents.size() == 1 : 
-                      "Rhombus already has two parents";
-                      // Rhomb already existed.
-                      block.sides.set(side, prev_rhomb);
-                      // Rhombus must already have one parent.
-                      Block neighbor = prev_rhomb.parents.get(0);
-                      block.next.add(neighbor);
-                      neighbor.next.set(neighbor.sides.indexOf(prev_rhomb), block);
-                      prev_rhomb.parents.add(block);
-                    } else {
-                      // New rhombus
-                      // Keep lists even w/ null elements
-                      block.next.add(null);
-                      prev_rhomb.parents.add(block);
-                      assert prev_rhomb.parents.size() == 1 : 
-                      "Rhombus already has two parents";
-                      assert block.sides.get(side).parents.size() == 1 : 
-                      "Rhombus already has two parents, and something odd is happening with RhombStore";
+                  }
+                  if (test_assertions) {
+                    for (Rhomb face : prev_block.sides) {
+                      assert rhombs.contains(face) : 
+                      "A face remains unregistered";
+                      assert cells.contains(face.corner1) : 
+                      "A corner remains unregistered";
                     }
-                    assert prev_rhomb == block.sides.get(side) : 
-                    "Somehow didn't fix a mismatch";
-                    assert rhombs.contains(block.sides.get(side)) : 
-                    "RhombStore doing something weird";
-                    assert prev_rhomb == rhombs.add(prev_rhomb) : 
-                    "RhombStore doing something weird";
-                    /*for (Rhomb rh : rhombs) {
-                     Point6D difference = block.sides.get(side).center.minus(rh.center);
-                     float maxdivergence = max(new float[]{abs(difference.point[0]), abs(difference.point[1]), abs(difference.point[2]), abs(difference.point[3]), abs(difference.point[4]), abs(difference.point[5])});
-                     if (maxdivergence < tolerance) {
-                     // Rhombus already exists.
-                     block.sides.set(side, rh);
-                     // Rhombus must have one parent.
-                     Block neighbor = rh.parents.get(0);
-                     block.next.add(neighbor);
-                     neighbor.next.set(neighbor.sides.indexOf(rh), block);
-                     rh.parents.add(block);
-                     rhombregistered = true;
-                     break;
-                     }
-                     }
-                     if (!rhombregistered) {
-                     rhombs.add(block.sides.get(side));
-                     // Keep lists even w/ null elements
-                     block.next.add(null);
-                     block.sides.get(side).parents.add(block);
-                     }*/
+                    for (Rhomb face : block.sides) {
+                      assert cells.contains(face.corner1) : 
+                      "A corner remains unregistered in an unused block object";
+                    }
                   }
-                }
-                if (test_assertions) {
-                  for (Rhomb face : prev_block.sides) {
-                    assert rhombs.contains(face) : 
-                    "A face remains unregistered";
-                    assert cells.contains(face.corner1) : 
-                    "A corner remains unregistered";
-                  }
-                  for (Rhomb face : block.sides) {
-                    assert cells.contains(face.corner1) : 
-                    "A corner remains unregistered in an unused block object";
-                  }
-                }
+                  i++;
+                }// End of double-cross while loop
+                // TODO Could assert here that left and right are brought back together by the end (ie,
+                // they form a unit cube again). Could also assert they're together at the beginning.
               }// Processed last crossing
               assert (new Point6D(linevector)).length()*(1 - sorteddists[dists.size()-1]) < sqrt(6): 
               "Didn't traverse whole line";
@@ -1003,7 +1007,7 @@ public class Quasicrystal {
     } else {
       println("Filling "+complete.size()+" holes");
     }
-    // TODO We let BlockStore deal with our redundancy. Would be faster w/o redundancy
+    // TODO We let BlockStore deal with our redundancy. Would be faster w/o redundancy //<>//
     assert blocksOK(blocks.list): 
     "Blocks compromised before adding any";
     for (Block block : complete.list) {
@@ -1015,9 +1019,9 @@ public class Quasicrystal {
       if (block == canonical_block) {
         // block being added for the first time. Add block to its faces.
         for (Rhomb face : block.sides) {// Trying to figure out what's going wrong
-          assert (face.parents.size() == 1) :
-          "If block is being added for the first time, how does its face have two parents?"; //<>// //<>//
-          int samecount = 0;
+          assert (face.parents.size() == 1) : //<>//
+          "If block is being added for the first time, how does its face have two parents?"; //<>//
+          int samecount = 0; //<>//
           for (Rhomb face2 : block.sides) {
             if (face.parents.get(0) == face2.parents.get(0)) samecount++;
           }
@@ -1028,9 +1032,9 @@ public class Quasicrystal {
         for (Rhomb face : block.sides) {
           block.next.add(face.parents.get(0));
           assert face.parents.size() == 1 : 
-          "Face already had two parents"; //<>// //<>//
+          "Face already had two parents"; //<>//
           assert face.parents.get(0).next.get(face.parents.get(0).sides.indexOf(face)) == null :
-          "Looks like something is up with our alignment of next and sides"; //<>// //<>//
+          "Looks like something is up with our alignment of next and sides"; //<>//
           face.parents.get(0).next.set(face.parents.get(0).sides.indexOf(face), block);
           face.parents.add(block);
         }
@@ -1039,7 +1043,7 @@ public class Quasicrystal {
     }
   }// done with Quasicrystal constructor
 
-  boolean rhombsOK(ArrayList<Rhomb> rhombs) {
+  boolean rhombsOK(ArrayList<Rhomb> rhombs) { //<>//
     for (Rhomb r : rhombs) {
       Rhomb testrhomb = new Rhomb(r.corner1, r.corner2, r.corner3, r.corner4);
       if (testrhomb.center.minus(r.center).length() > 0.0001) {
@@ -1048,35 +1052,35 @@ public class Quasicrystal {
     }
     return true;
   }
-
+ //<>//
   boolean blocksOK(ArrayList<Block> blocks) {
     for (Block b : blocks) {
       if (b.next.size() > 0 && b.next.size() != b.sides.size()) {
-        return false; //<>// //<>//
+        return false; //<>//
       }
       for (Block neighbor : b.next) {
         if (neighbor != null) {
           int samecount = 0;
-          for (Block neighbor2 : b.next) {
+          for (Block neighbor2 : b.next) { //<>//
             if (neighbor == neighbor2) samecount++;
           }
           if (samecount != 1) 
-            return false; //<>// //<>//
+            return false; //<>//
         }
-      }
+      } //<>//
       for (Rhomb r : b.sides) {
         int samecount = 0;
         for (Rhomb r2 : b.sides) {
           if (r == r2) samecount++;
         }
         if (samecount != 1)
-          return false; //<>// //<>//
-        if (r.parents.size() == 2) {
+          return false; //<>//
+        if (r.parents.size() == 2) { //<>//
           // test that the two parents make sense
           int index = 0;
           while (index < r.parents.size() && r.parents.get(index) == b) index++;
           if (index > 1)
-            return false; //<>// //<>//
+            return false; //<>//
           // TODO test that neighbor is adjacent and
           // isn't overlapping
         } else {
@@ -1084,7 +1088,7 @@ public class Quasicrystal {
           "Rhombus with 3 or more parents";
           if (b.next.size() > 0 && b.next.get(b.sides.indexOf(r)) != null) {
             // Rhombus is w/o a parent but block has a corresponding "next"
-            return false; //<>// //<>//
+            return false; //<>//
           }
         }
       }

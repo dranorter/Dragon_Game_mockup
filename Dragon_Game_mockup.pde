@@ -1,4 +1,4 @@
-/**************************************** //<>//
+/**************************************** //<>// //<>//
  * Dragon Game Mockup by Daniel Demski.
  * 
  * Generates nonperiodic (quasicrystal) lattices in 3D
@@ -136,7 +136,7 @@ void setupRender() {
     Rhomb r = (Rhomb)(o);
     r.center_3D = new PVector(r.center.minus(main_chunk_lattice.fivedeew).dot(main_chunk_lattice.fivedee0), r.center.minus(main_chunk_lattice.fivedeew).dot(main_chunk_lattice.fivedee1), r.center.minus(main_chunk_lattice.fivedeew).dot(main_chunk_lattice.fivedee2));
   }
-  for (int loopvar = 0; loopvar < 4; loopvar++) {
+  for (int loopvar = 0; loopvar < 800; loopvar++) {
     selection = floor(random(main_chunk_lattice.blocks.size()));
     main_chunk_lattice.blocks.list.get(selection).value = ceil(random(0, 20));
   }
@@ -150,6 +150,13 @@ void render() {
     setupRender();
   }
   background(0, 100, 0);
+  // TODO Render in vectors fivedeex, fivedeey and fivedeez
+  // from each lattice
+  //stroke(0);
+  //noFill();
+  //beginShape();
+  //vertex(0,0,0);
+  
   ArrayList<Rhomb> pointedAt = new ArrayList<Rhomb>();
   for (Block block : (Iterable<Block>)(main_lattice.blocks)) {
     if (block.value > 0) {
@@ -381,7 +388,7 @@ class chunkNetwork {
   ArrayList<Chunk> chunkTypes;
 
   public chunkNetwork(Point6D initial_w, Point6D x, Point6D y, Point6D z) {
-    float searchradius = 12;// needs to be big enough to guarantee one fully-populated chunk
+    float searchradius = 9;// needs to be big enough to guarantee one fully-populated chunk
     // Normalize in order to make searchradius "accurate"
     x = x.normalized();
     y = y.normalized();
@@ -389,16 +396,72 @@ class chunkNetwork {
     println("Generating block lattice...");
     Quasicrystal lattice = new Quasicrystal(initial_w, x, y, z, searchradius);
     //Quasicrystal lattice = new Quasicrystal(initial_w, x.plus(y), y.plus(z), z, searchradius);
+    x.point[0] += x.point[2];
+    y.point[0] += y.point[2];
+    z.point[0] += z.point[2];
+    initial_w.point[0] += initial_w.point[2];
+    x.point[1] += x.point[0];
+    y.point[1] += y.point[0];
+    z.point[1] += z.point[0];
+    initial_w.point[1] += initial_w.point[0];
+    x.point[2] += x.point[1];
+    y.point[2] += y.point[1];
+    z.point[2] += z.point[1];
+    initial_w.point[2] += initial_w.point[1];
     println("Generating chunk lattice...");
-    Quasicrystal chunk_lattice = new Quasicrystal(initial_w.times(1.0/chunk_ratio), x.times(1.0/chunk_ratio), y.times(1.0/chunk_ratio), z.times(1.0/chunk_ratio), searchradius*(1.0/chunk_ratio));
-    //Quasicrystal chunk_lattice = new Quasicrystal(initial_w, x.plus(y), y, z, searchradius);
+    //Quasicrystal chunk_lattice = new Quasicrystal(initial_w.times(1.0/chunk_ratio), x.times(1.0/chunk_ratio), y.times(1.0/chunk_ratio), z.times(1.0/chunk_ratio), searchradius*(1.0/chunk_ratio));
+    Quasicrystal chunk_lattice = new Quasicrystal(initial_w, x, y, z, searchradius);
+    
+    /*x.point[0] = lattice.fivedeex.point[0] + lattice.fivedeex.point[1];
+    y.point[0] = lattice.fivedeey.point[0] + lattice.fivedeey.point[1];
+    z.point[0] = lattice.fivedeez.point[0] + lattice.fivedeez.point[1];
+    initial_w.point[0] = lattice.fivedeew.point[0] + lattice.fivedeew.point[1];
+    x.point[1] = lattice.fivedeex.point[1] + lattice.fivedeex.point[2];
+    y.point[1] = lattice.fivedeey.point[1] + lattice.fivedeey.point[2];
+    z.point[1] = lattice.fivedeez.point[1] + lattice.fivedeez.point[2];
+    initial_w.point[0] = lattice.fivedeew.point[1] + lattice.fivedeew.point[2];
+    x.point[2] = lattice.fivedeex.point[2] + lattice.fivedeex.point[0];
+    y.point[2] = lattice.fivedeey.point[2] + lattice.fivedeey.point[0];
+    z.point[2] = lattice.fivedeez.point[2] + lattice.fivedeez.point[0];
+    initial_w.point[0] = lattice.fivedeew.point[2] + lattice.fivedeew.point[0];
     println("Generating lattice to classify blocks as if they were chunks...");
-    Quasicrystal subblock_lattice = new Quasicrystal(initial_w.times(chunk_ratio), x.times(chunk_ratio), y.times(chunk_ratio), z.times(chunk_ratio), searchradius*(chunk_ratio));
-    //Quasicrystal subblock_lattice = new Quasicrystal(initial_w, x, y, z, searchradius);
+    //Quasicrystal subblock_lattice = new Quasicrystal(initial_w.times(chunk_ratio), x.times(chunk_ratio), y.times(chunk_ratio), z.times(chunk_ratio), searchradius*(chunk_ratio));
+    Quasicrystal subblock_lattice = new Quasicrystal(initial_w, x, y, z, searchradius);*/
     
     // Scale everything in chunk_lattice back up
+    
+    chunk_lattice.fivedee0.set(lattice.fivedee0);
+    chunk_lattice.fivedee1.set(lattice.fivedee1);
+    chunk_lattice.fivedee2.set(lattice.fivedee2);
+    chunk_lattice.fivedeex.set(lattice.fivedeex);
+    chunk_lattice.fivedeey.set(lattice.fivedeey);
+    chunk_lattice.fivedeez.set(lattice.fivedeez);
+    chunk_lattice.fivedeew.set(lattice.fivedeew);
+    
+    for (Object o : chunk_lattice.rhombs) {
+      Rhomb rhomb = (Rhomb) o;
+      Point6D rc = rhomb.center.copy();
+      rc.point[0] = 0.5*rc.point[0]+0.5*rc.point[1]+-0.5*rc.point[2];
+      rc.point[1] = -0.5*rc.point[0]+0.5*rc.point[1]+0.5*rc.point[2];
+      rc.point[2] = 0.5*rc.point[0]+-0.5*rc.point[1]+0.5*rc.point[2];
+      rhomb.center.set(rc);
+    }
+    for (Block b: (Iterable<Block>)(chunk_lattice.blocks)) {
+      Point6D bc = b.center.copy();
+      bc.point[0] = 0.5*bc.point[0]+0.5*bc.point[1]+-0.5*bc.point[2];
+      bc.point[1] = -0.5*bc.point[0]+0.5*bc.point[1]+0.5*bc.point[2];
+      bc.point[2] = 0.5*bc.point[0]+-0.5*bc.point[1]+0.5*bc.point[2];
+      b.center.set(bc);
+    }
+    for (Vertex v : (Iterable<Vertex>)(chunk_lattice.cells)) {
+      Point6D vv = v.copy();
+      vv.point[0] = 0.5*vv.point[0]+0.5*vv.point[1]+-0.5*vv.point[2];
+      vv.point[1] = -0.5*vv.point[0]+0.5*vv.point[1]+0.5*vv.point[2];
+      vv.point[2] = 0.5*vv.point[0]+-0.5*vv.point[1]+0.5*vv.point[2];
+      v.set(vv);
+    }
 
-    chunk_lattice.fivedeex.set(chunk_lattice.fivedeex.times(chunk_ratio));
+    /*chunk_lattice.fivedeex.set(chunk_lattice.fivedeex.times(chunk_ratio));
     chunk_lattice.fivedeey.set(chunk_lattice.fivedeey.times(chunk_ratio));
     chunk_lattice.fivedeez.set(chunk_lattice.fivedeez.times(chunk_ratio));
     chunk_lattice.fivedeew.set(chunk_lattice.fivedeew.times(chunk_ratio));
@@ -416,11 +479,28 @@ class chunkNetwork {
     }
     for (Vertex v : (Iterable<Vertex>)(chunk_lattice.cells)) {
       v.set(v.times(chunk_ratio));
-    }
+    }*/
 
     // And everything in subblock_lattice down
 
-    subblock_lattice.fivedeex.set(subblock_lattice.fivedeex.times(1.0/chunk_ratio));
+    /*subblock_lattice.fivedee0.set(lattice.fivedeex);
+    subblock_lattice.fivedee1.set(lattice.fivedeey);
+    subblock_lattice.fivedee2.set(lattice.fivedeez);
+    subblock_lattice.fivedeex.set(lattice.fivedeex);
+    subblock_lattice.fivedeey.set(lattice.fivedeey);
+    subblock_lattice.fivedeez.set(lattice.fivedeez);
+    subblock_lattice.fivedeew.set(lattice.fivedeew);
+    
+    for (Object o : subblock_lattice.rhombs) {
+      Rhomb rhomb = (Rhomb) o;
+      Point6D rc = rhomb.center.copy();
+      rc.point[0] = 0.5*rc.point[0]+-0.5*rc.point[1]+0.5*rc.point[2];
+      rc.point[1] = 0.5*rc.point[0]+0.5*rc.point[1]+-0.5*rc.point[2];
+      rc.point[2] = -0.5*rc.point[0]+0.5*rc.point[1]+0.5*rc.point[2];
+      rhomb.center.set(rc);
+    }*/
+    
+    /*subblock_lattice.fivedeex.set(subblock_lattice.fivedeex.times(1.0/chunk_ratio));
     subblock_lattice.fivedeey.set(subblock_lattice.fivedeey.times(1.0/chunk_ratio));
     subblock_lattice.fivedeez.set(subblock_lattice.fivedeez.times(1.0/chunk_ratio));
     subblock_lattice.fivedeew.set(subblock_lattice.fivedeew.times(1.0/chunk_ratio));
@@ -442,8 +522,8 @@ class chunkNetwork {
       v.set(v.times(1.0/chunk_ratio));
     }//*/
 
-    main_lattice = subblock_lattice;
-    main_chunk_lattice = lattice;
+    main_lattice = lattice;//subblock_lattice;
+    main_chunk_lattice = chunk_lattice;//lattice;
     if (skip_classif) {
       return;
     }
@@ -458,13 +538,13 @@ class chunkNetwork {
     r.center_3D = new PVector(r.center.minus(chunk_lattice.fivedeew).dot(chunk_lattice.fivedee0), r.center.minus(chunk_lattice.fivedeew).dot(chunk_lattice.fivedee1), r.center.minus(chunk_lattice.fivedeew).dot(chunk_lattice.fivedee2));
   }
 
-    println(str(chunk_lattice.blocks.list.size())+" chunks, "+str(lattice.blocks.list.size())+" blocks, "+str(subblock_lattice.blocks.list.size())+" sub-blocks found.");
+    //println(str(chunk_lattice.blocks.list.size())+" chunks, "+str(lattice.blocks.list.size())+" blocks, "+str(subblock_lattice.blocks.list.size())+" sub-blocks found.");
     println("Classifying chunks...");
     ArrayList<Chunk> classif1 = classifyChunks3D(chunk_lattice, lattice);
     println(str(classif1.size())+" unique chunks found.");
     println("Classifying blocks as if they were chunks...");
-    ArrayList<Chunk> classif2 = classifyChunks3D(lattice, subblock_lattice);
-    println(str(classif2.size())+" unique blocks found.");
+    //ArrayList<Chunk> classif2 = classifyChunks3D(lattice, subblock_lattice);
+    //println(str(classif2.size())+" unique blocks found.");
 
     for (Chunk c : classif1) {
       if (c.instances.size() > 1) {
@@ -473,14 +553,14 @@ class chunkNetwork {
           String types = str(classif1.indexOf(c));
           int block_count = 0;
           for (Block b : ci.blocks) {
-            for (Chunk s : classif2) {
+            /*for (Chunk s : classif2) {
               for (Chunk si : s.instances) {
                 if (max(si.center.minus(b.center).abs().point) < 0.01) {
                   types = types+" "+classif2.indexOf(s);
                   block_count += 1;
                 }
               }
-            }
+            }*/
           }
           if (block_count > 0)
             println(types);
@@ -530,7 +610,7 @@ ArrayList<Chunk> classifyChunks(Quasicrystal chunk_lattice, Quasicrystal lattice
         PointStore iterate = new PointStore(lattice.tolerance); //<>//
         //iterate.add(block.center);
         boolean maybe_skipchunk = false;
-        // Let's decorate with corners too. It's okay that we'll repeat them.
+        // Let's decorate with corners too. It's okay that we'll repeat them. //<>//
         for (Rhomb r : block.sides) {
           if (r.parents.size() < 2) {
             // This block is too close to the edge of space.
@@ -565,7 +645,7 @@ ArrayList<Chunk> classifyChunks(Quasicrystal chunk_lattice, Quasicrystal lattice
             decorations.add(block.center.copy()); //<>//
             addblock = true;
             if (maybe_skipchunk) {
-              skipchunk = true;
+              skipchunk = true; //<>//
               break;
             }
           }
