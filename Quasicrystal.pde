@@ -423,11 +423,15 @@ public class Quasicrystal {
                }*/
               if (d != lineDim && d != planeDim) {
                 // We want to catch any included half-integer values, so we'll subtract 0.5 and take all integer values of that range.
+                // TODO Suppose enter[d] is 1.5, and that makes i = 1.0. We'll be including a transition which is right on the
+                // edge of our window, which we don't really want to do. Adding 1 and taking the floor pushes i up to 2.0, which seems
+                // like the right thing; yet the comment below warns about problems when I was using floor. Right now it seems to crash either
+                // way, but only when I have certain non-orthogonal choices of x, y, z.
                 for (int i = ceil(min(enter[d], exit[d])-0.5); i <= max(enter[d], exit[d])-0.5; i++) {//I changed from floor to ceil here. We don't want an intersection which isn't onscreen.//TODO This change fixed stuff but I don't see why it did! Reverse engineer bug!!
                   // We measure dist from enter[d] since linevector is measured from that point.
                   float dist = ((float(i)+0.5)-(enter[d]))/linevector[d];
                 assert dist > 0 && dist < 1 : 
-                  "Distance to crossing outside of expected range.";
+                  "Distance to crossing outside of expected range; dist = "+dist; //<>//
                   dists.add(dist);
                   dims.add(d);
                   // TODO I'm adding math here. Is this new storage system actually speeding anything up?
@@ -759,7 +763,7 @@ public class Quasicrystal {
                     // TODO Used leftdim here. Is that reasonable?
                     block.axes = new ArrayList<Integer>(java.util.Arrays.asList(new Integer[]{lineDim, planeDim, leftdim}));
                     block.sides.add(new Rhomb(oldLeftDownCell, oldRightDownCell, oldLeftUpCell, oldRightUpCell));// old face
-                    block.sides.add(new Rhomb(oldLeftDownCell, left_downCell, oldLeftUpCell, left_upCell));// left face //<>//
+                    block.sides.add(new Rhomb(oldLeftDownCell, left_downCell, oldLeftUpCell, left_upCell));// left face
                     block.sides.add(new Rhomb(right_downCell, left_downCell, right_upCell, left_upCell));// new face
                     block.sides.add(new Rhomb(right_downCell, oldRightDownCell, right_upCell, oldRightUpCell));// right face
                     block.sides.add(new Rhomb(oldLeftUpCell, oldRightUpCell, left_upCell, right_upCell));// up face
@@ -1019,9 +1023,9 @@ public class Quasicrystal {
       if (block == canonical_block) {
         // block being added for the first time. Add block to its faces.
         for (Rhomb face : block.sides) {// Trying to figure out what's going wrong
-          assert (face.parents.size() == 1) : //<>//
-          "If block is being added for the first time, how does its face have two parents?"; //<>//
-          int samecount = 0; //<>//
+          assert (face.parents.size() == 1) :
+          "If block is being added for the first time, how does its face have two parents?";
+          int samecount = 0;
           for (Rhomb face2 : block.sides) {
             if (face.parents.get(0) == face2.parents.get(0)) samecount++;
           }
@@ -1032,9 +1036,9 @@ public class Quasicrystal {
         for (Rhomb face : block.sides) {
           block.next.add(face.parents.get(0));
           assert face.parents.size() == 1 : 
-          "Face already had two parents"; //<>//
+          "Face already had two parents";
           assert face.parents.get(0).next.get(face.parents.get(0).sides.indexOf(face)) == null :
-          "Looks like something is up with our alignment of next and sides"; //<>//
+          "Looks like something is up with our alignment of next and sides";
           face.parents.get(0).next.set(face.parents.get(0).sides.indexOf(face), block);
           face.parents.add(block);
         }
@@ -1043,7 +1047,7 @@ public class Quasicrystal {
     }
   }// done with Quasicrystal constructor
 
-  boolean rhombsOK(ArrayList<Rhomb> rhombs) { //<>//
+  boolean rhombsOK(ArrayList<Rhomb> rhombs) {
     for (Rhomb r : rhombs) {
       Rhomb testrhomb = new Rhomb(r.corner1, r.corner2, r.corner3, r.corner4);
       if (testrhomb.center.minus(r.center).length() > 0.0001) {
@@ -1052,30 +1056,30 @@ public class Quasicrystal {
     }
     return true;
   }
- //<>//
+
   boolean blocksOK(ArrayList<Block> blocks) {
     for (Block b : blocks) {
       if (b.next.size() > 0 && b.next.size() != b.sides.size()) {
-        return false; //<>//
+        return false;
       }
       for (Block neighbor : b.next) {
         if (neighbor != null) {
           int samecount = 0;
-          for (Block neighbor2 : b.next) { //<>//
+          for (Block neighbor2 : b.next) {
             if (neighbor == neighbor2) samecount++;
           }
           if (samecount != 1) 
-            return false; //<>//
+            return false;
         }
-      } //<>//
+      }
       for (Rhomb r : b.sides) {
         int samecount = 0;
         for (Rhomb r2 : b.sides) {
           if (r == r2) samecount++;
         }
         if (samecount != 1)
-          return false; //<>//
-        if (r.parents.size() == 2) { //<>//
+          return false;
+        if (r.parents.size() == 2) {
           // test that the two parents make sense
           int index = 0;
           while (index < r.parents.size() && r.parents.get(index) == b) index++;
