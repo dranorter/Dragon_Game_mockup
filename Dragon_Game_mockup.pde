@@ -1,6 +1,6 @@
-//import pallav.Matrix.*; //<>// //<>// //<>// //<>// //<>//
+//import pallav.Matrix.*; //<>// //<>// //<>// //<>// //<>// //<>//
 
-/**************************************** //<>//
+/****************************************
  * Dragon Game Mockup by Daniel Demski.
  * 
  * Generates nonperiodic (quasicrystal) lattices in 3D
@@ -59,6 +59,7 @@
 //import queasycam.*;
 boolean test_assertions = true;
 boolean picky_assertions = false;
+boolean render_old_quasicrystal = false;
 
 float driftspeed = 1;
 
@@ -167,7 +168,7 @@ void setupRender() {
         "unregistered rhomb as face";
         assert main_lattice.cells.list.contains(face.corner1): 
         "unregistered vertex as corner";
-        assert face.corner1.location_3D != null :
+      assert face.corner1.location_3D != null :
         "Supposedly-registered vertex didn't get a 3D location";
       }
     }
@@ -205,7 +206,7 @@ void render() {
   //noFill();
   //beginShape();
   //vertex(0,0,0);
-  
+
   ArrayList<Rhomb> pointedAt = new ArrayList<Rhomb>();
   for (Block block : (Iterable<Block>)(main_lattice.blocks)) {
     if (block.value > 0) {
@@ -391,8 +392,8 @@ void generate() {
   //float[] fivedeey = {random(-10,10),random(-10,10),random(-10,10),random(-10,10),random(-10,10)};
   //float[] fivedeew = {random(-10,10),random(-10,10),random(-10,10),random(-10,10),random(-10,10)};// The position of the screen's origin
 
-  // Idea: Rather than implementing the Steinhardt algorithm I could 
   
+
   // Penrose
   float phi = (1+sqrt(5))/2;
   Point6D x = new Point6D(new float[]{phi, 0, 1, phi, 0, -1});
@@ -408,7 +409,11 @@ void generate() {
   //float rad = 12;//12;
   //float chunk_ratio = 2;
 
-  chunkNetwork cn = new chunkNetwork(w, x, y, z);
+  if (render_old_quasicrystal) {
+    chunkNetwork cn = new chunkNetwork(w, x, y, z);
+  } else {
+    CubeChunk first_chunk = new CubeChunk(new PVector(-0.5,-0.5,-0.5), 1);
+  }
 
   /*lattice = new Quasicrystal(w, x, y, z, rad);
    // What we want to do with the chunks is tilt the 3D basis within higher-D by the correct amount
@@ -454,60 +459,60 @@ class chunkNetwork {
     z = z.normalized();
     println("Generating block lattice...");
     Quasicrystal lattice = new Quasicrystal(initial_w, x, y, z, searchradius);
-    
-    
-    Matrix m = Matrix.Multiply(Matrix.Multiply(unitt(0,3),unitt(1,4)),unitt(2,5));
+
+
+    Matrix m = Matrix.Multiply(Matrix.Multiply(unitt(0, 3), unitt(1, 4)), unitt(2, 5));
     //Matrix m = Matrix.Multiply(Matrix.Multiply(unitt(0,1),unitt(1,2)),unitt(2,0));
     Matrix im = Matrix.inverse(m);
-    
+
     //Quasicrystal lattice = new Quasicrystal(initial_w, x.plus(y), y.plus(z), z, searchradius);
     Point6D x_chunk = x.copy();
     Point6D y_chunk = y.copy();
     Point6D z_chunk = z.copy();
     Point6D w_chunk = initial_w.copy();
-    x_chunk.point = Matrix.Multiply(Matrix.array(new float[][] {x_chunk.point}),m).array[0];
-    y_chunk.point = Matrix.Multiply(Matrix.array(new float[][] {y_chunk.point}),m).array[0];
-    z_chunk.point = Matrix.Multiply(Matrix.array(new float[][] {z_chunk.point}),m).array[0];
-    w_chunk.point = Matrix.Multiply(Matrix.array(new float[][] {w_chunk.point}),m).array[0];
+    x_chunk.point = Matrix.Multiply(Matrix.array(new float[][] {x_chunk.point}), m).array[0];
+    y_chunk.point = Matrix.Multiply(Matrix.array(new float[][] {y_chunk.point}), m).array[0];
+    z_chunk.point = Matrix.Multiply(Matrix.array(new float[][] {z_chunk.point}), m).array[0];
+    w_chunk.point = Matrix.Multiply(Matrix.array(new float[][] {w_chunk.point}), m).array[0];
     println("Generating chunk lattice...");
     //Quasicrystal chunk_lattice = new Quasicrystal(initial_w.times(1.0/chunk_ratio), x.times(1.0/chunk_ratio), y.times(1.0/chunk_ratio), z.times(1.0/chunk_ratio), searchradius*(1.0/chunk_ratio));
     Quasicrystal chunk_lattice = new Quasicrystal(w_chunk, x_chunk, y_chunk, z_chunk, searchradius);
-    
+
     /*x.point[0] = lattice.fivedeex.point[0] + lattice.fivedeex.point[1];
-    y.point[0] = lattice.fivedeey.point[0] + lattice.fivedeey.point[1];
-    z.point[0] = lattice.fivedeez.point[0] + lattice.fivedeez.point[1];
-    initial_w.point[0] = lattice.fivedeew.point[0] + lattice.fivedeew.point[1];
-    x.point[1] = lattice.fivedeex.point[1] + lattice.fivedeex.point[2];
-    y.point[1] = lattice.fivedeey.point[1] + lattice.fivedeey.point[2];
-    z.point[1] = lattice.fivedeez.point[1] + lattice.fivedeez.point[2];
-    initial_w.point[0] = lattice.fivedeew.point[1] + lattice.fivedeew.point[2];
-    x.point[2] = lattice.fivedeex.point[2] + lattice.fivedeex.point[0];
-    y.point[2] = lattice.fivedeey.point[2] + lattice.fivedeey.point[0];
-    z.point[2] = lattice.fivedeez.point[2] + lattice.fivedeez.point[0];
-    initial_w.point[0] = lattice.fivedeew.point[2] + lattice.fivedeew.point[0];
-    println("Generating lattice to classify blocks as if they were chunks...");
-    //Quasicrystal subblock_lattice = new Quasicrystal(initial_w.times(chunk_ratio), x.times(chunk_ratio), y.times(chunk_ratio), z.times(chunk_ratio), searchradius*(chunk_ratio));
-    Quasicrystal subblock_lattice = new Quasicrystal(initial_w, x, y, z, searchradius);*/
-    
+     y.point[0] = lattice.fivedeey.point[0] + lattice.fivedeey.point[1];
+     z.point[0] = lattice.fivedeez.point[0] + lattice.fivedeez.point[1];
+     initial_w.point[0] = lattice.fivedeew.point[0] + lattice.fivedeew.point[1];
+     x.point[1] = lattice.fivedeex.point[1] + lattice.fivedeex.point[2];
+     y.point[1] = lattice.fivedeey.point[1] + lattice.fivedeey.point[2];
+     z.point[1] = lattice.fivedeez.point[1] + lattice.fivedeez.point[2];
+     initial_w.point[0] = lattice.fivedeew.point[1] + lattice.fivedeew.point[2];
+     x.point[2] = lattice.fivedeex.point[2] + lattice.fivedeex.point[0];
+     y.point[2] = lattice.fivedeey.point[2] + lattice.fivedeey.point[0];
+     z.point[2] = lattice.fivedeez.point[2] + lattice.fivedeez.point[0];
+     initial_w.point[0] = lattice.fivedeew.point[2] + lattice.fivedeew.point[0];
+     println("Generating lattice to classify blocks as if they were chunks...");
+     //Quasicrystal subblock_lattice = new Quasicrystal(initial_w.times(chunk_ratio), x.times(chunk_ratio), y.times(chunk_ratio), z.times(chunk_ratio), searchradius*(chunk_ratio));
+     Quasicrystal subblock_lattice = new Quasicrystal(initial_w, x, y, z, searchradius);*/
+
     // Scale everything in chunk_lattice back up
     //println(chunk_lattice.fivedee0.minus(lattice.fivedee0).point);
     //println(chunk_lattice.fivedee1.minus(lattice.fivedee1).point);
     //println(chunk_lattice.fivedee2.minus(lattice.fivedee2).point);
-    
+
     Point6D test = chunk_lattice.fivedee0.copy();
-    test.point = Matrix.Multiply(Matrix.array(new float[][] {test.point}),im).array[0];
+    test.point = Matrix.Multiply(Matrix.array(new float[][] {test.point}), im).array[0];
     chunk_lattice.fivedee0.set(test);
     test = chunk_lattice.fivedee1.copy();
-    test.point = Matrix.Multiply(Matrix.array(new float[][] {test.point}),im).array[0];
+    test.point = Matrix.Multiply(Matrix.array(new float[][] {test.point}), im).array[0];
     chunk_lattice.fivedee1.set(test);
     test = chunk_lattice.fivedee2.copy();
-    test.point = Matrix.Multiply(Matrix.array(new float[][] {test.point}),im).array[0];
+    test.point = Matrix.Multiply(Matrix.array(new float[][] {test.point}), im).array[0];
     chunk_lattice.fivedee2.set(test);
     println();
     println(chunk_lattice.fivedee0.minus(lattice.fivedee0).point);
     println(chunk_lattice.fivedee1.minus(lattice.fivedee1).point);
     println(chunk_lattice.fivedee2.minus(lattice.fivedee2).point);
-     
+
     chunk_lattice.fivedee0.set(lattice.fivedee0);
     chunk_lattice.fivedee1.set(lattice.fivedee1);
     chunk_lattice.fivedee2.set(lattice.fivedee2);
@@ -515,100 +520,100 @@ class chunkNetwork {
     chunk_lattice.fivedeey.set(lattice.fivedeey);
     chunk_lattice.fivedeez.set(lattice.fivedeez);
     chunk_lattice.fivedeew.set(lattice.fivedeew);
-    
+
     for (Object o : chunk_lattice.rhombs) {
       Rhomb rhomb = (Rhomb) o;
       Point6D rc = rhomb.center.copy();
-      rc.point = Matrix.Multiply(Matrix.array(new float[][] {rc.point}),im).array[0];
+      rc.point = Matrix.Multiply(Matrix.array(new float[][] {rc.point}), im).array[0];
       rhomb.center.set(rc);
     }
-    for (Block b: (Iterable<Block>)(chunk_lattice.blocks)) {
+    for (Block b : (Iterable<Block>)(chunk_lattice.blocks)) {
       Point6D bc = b.center.copy();
-      bc.point = Matrix.Multiply(Matrix.array(new float[][] {bc.point}),im).array[0];
+      bc.point = Matrix.Multiply(Matrix.array(new float[][] {bc.point}), im).array[0];
       b.center.set(bc);
     }
     for (Vertex v : (Iterable<Vertex>)(chunk_lattice.cells)) {
       Point6D vv = v.copy();
-      vv.point = Matrix.Multiply(Matrix.array(new float[][] {vv.point}),im).array[0];
+      vv.point = Matrix.Multiply(Matrix.array(new float[][] {vv.point}), im).array[0];
       v.set(vv);
     }
 
     /*chunk_lattice.fivedeex.set(chunk_lattice.fivedeex.times(chunk_ratio));
-    chunk_lattice.fivedeey.set(chunk_lattice.fivedeey.times(chunk_ratio));
-    chunk_lattice.fivedeez.set(chunk_lattice.fivedeez.times(chunk_ratio));
-    chunk_lattice.fivedeew.set(chunk_lattice.fivedeew.times(chunk_ratio));
-    // TODO Why do I have to cast here? Fix it so that I don't
-    for (Object o : chunk_lattice.rhombs) {
-      Rhomb rhomb = (Rhomb)o;
-      rhomb.center.set(rhomb.center.times(chunk_ratio));
-      //rhomb.corner1.set(rhomb.corner1.times(chunk_ratio));
-      //rhomb.corner2.set(rhomb.corner2.times(chunk_ratio));
-      //rhomb.corner3.set(rhomb.corner3.times(chunk_ratio));
-      //rhomb.corner4.set(rhomb.corner4.times(chunk_ratio));
-    }
-    for (Block b : (Iterable<Block>)(chunk_lattice.blocks)) {
-      b.center.set(b.center.times(chunk_ratio));
-    }
-    for (Vertex v : (Iterable<Vertex>)(chunk_lattice.cells)) {
-      v.set(v.times(chunk_ratio));
-    }*/
+     chunk_lattice.fivedeey.set(chunk_lattice.fivedeey.times(chunk_ratio));
+     chunk_lattice.fivedeez.set(chunk_lattice.fivedeez.times(chunk_ratio));
+     chunk_lattice.fivedeew.set(chunk_lattice.fivedeew.times(chunk_ratio));
+     // TODO Why do I have to cast here? Fix it so that I don't
+     for (Object o : chunk_lattice.rhombs) {
+     Rhomb rhomb = (Rhomb)o;
+     rhomb.center.set(rhomb.center.times(chunk_ratio));
+     //rhomb.corner1.set(rhomb.corner1.times(chunk_ratio));
+     //rhomb.corner2.set(rhomb.corner2.times(chunk_ratio));
+     //rhomb.corner3.set(rhomb.corner3.times(chunk_ratio));
+     //rhomb.corner4.set(rhomb.corner4.times(chunk_ratio));
+     }
+     for (Block b : (Iterable<Block>)(chunk_lattice.blocks)) {
+     b.center.set(b.center.times(chunk_ratio));
+     }
+     for (Vertex v : (Iterable<Vertex>)(chunk_lattice.cells)) {
+     v.set(v.times(chunk_ratio));
+     }*/
 
     // And everything in subblock_lattice down
 
     /*subblock_lattice.fivedee0.set(lattice.fivedeex);
-    subblock_lattice.fivedee1.set(lattice.fivedeey);
-    subblock_lattice.fivedee2.set(lattice.fivedeez);
-    subblock_lattice.fivedeex.set(lattice.fivedeex);
-    subblock_lattice.fivedeey.set(lattice.fivedeey);
-    subblock_lattice.fivedeez.set(lattice.fivedeez);
-    subblock_lattice.fivedeew.set(lattice.fivedeew);
-    
-    for (Object o : subblock_lattice.rhombs) {
-      Rhomb rhomb = (Rhomb) o;
-      Point6D rc = rhomb.center.copy();
-      rc.point[0] = 0.5*rc.point[0]+-0.5*rc.point[1]+0.5*rc.point[2];
-      rc.point[1] = 0.5*rc.point[0]+0.5*rc.point[1]+-0.5*rc.point[2];
-      rc.point[2] = -0.5*rc.point[0]+0.5*rc.point[1]+0.5*rc.point[2];
-      rhomb.center.set(rc);
-    }*/
-    
+     subblock_lattice.fivedee1.set(lattice.fivedeey);
+     subblock_lattice.fivedee2.set(lattice.fivedeez);
+     subblock_lattice.fivedeex.set(lattice.fivedeex);
+     subblock_lattice.fivedeey.set(lattice.fivedeey);
+     subblock_lattice.fivedeez.set(lattice.fivedeez);
+     subblock_lattice.fivedeew.set(lattice.fivedeew);
+     
+     for (Object o : subblock_lattice.rhombs) {
+     Rhomb rhomb = (Rhomb) o;
+     Point6D rc = rhomb.center.copy();
+     rc.point[0] = 0.5*rc.point[0]+-0.5*rc.point[1]+0.5*rc.point[2];
+     rc.point[1] = 0.5*rc.point[0]+0.5*rc.point[1]+-0.5*rc.point[2];
+     rc.point[2] = -0.5*rc.point[0]+0.5*rc.point[1]+0.5*rc.point[2];
+     rhomb.center.set(rc);
+     }*/
+
     /*subblock_lattice.fivedeex.set(subblock_lattice.fivedeex.times(1.0/chunk_ratio));
-    subblock_lattice.fivedeey.set(subblock_lattice.fivedeey.times(1.0/chunk_ratio));
-    subblock_lattice.fivedeez.set(subblock_lattice.fivedeez.times(1.0/chunk_ratio));
-    subblock_lattice.fivedeew.set(subblock_lattice.fivedeew.times(1.0/chunk_ratio));
-    // TODO Here, I'm changing the coordinates of something inside RhombStore.
-    // This makes RhombStore make mistakes later. Ought to create a legit way
-    // to do this.
-    for (Object o : subblock_lattice.rhombs) {
-      Rhomb rhomb = (Rhomb)o;
-      rhomb.center.set(rhomb.center.times(1.0/chunk_ratio));
-      //rhomb.corner1.set(rhomb.corner1.times(1.0/chunk_ratio));
-      //rhomb.corner2.set(rhomb.corner2.times(1.0/chunk_ratio));
-      //rhomb.corner3.set(rhomb.corner3.times(1.0/chunk_ratio));
-      //rhomb.corner4.set(rhomb.corner4.times(1.0/chunk_ratio));
-    }
-    for (Block b : (Iterable<Block>)(subblock_lattice.blocks)) {
-      b.center.set(b.center.times(1.0/chunk_ratio));
-    }
-    for (Vertex v : (Iterable<Vertex>)(subblock_lattice.cells)) {
-      v.set(v.times(1.0/chunk_ratio));
-    }//*/
+     subblock_lattice.fivedeey.set(subblock_lattice.fivedeey.times(1.0/chunk_ratio));
+     subblock_lattice.fivedeez.set(subblock_lattice.fivedeez.times(1.0/chunk_ratio));
+     subblock_lattice.fivedeew.set(subblock_lattice.fivedeew.times(1.0/chunk_ratio));
+     // TODO Here, I'm changing the coordinates of something inside RhombStore.
+     // This makes RhombStore make mistakes later. Ought to create a legit way
+     // to do this.
+     for (Object o : subblock_lattice.rhombs) {
+     Rhomb rhomb = (Rhomb)o;
+     rhomb.center.set(rhomb.center.times(1.0/chunk_ratio));
+     //rhomb.corner1.set(rhomb.corner1.times(1.0/chunk_ratio));
+     //rhomb.corner2.set(rhomb.corner2.times(1.0/chunk_ratio));
+     //rhomb.corner3.set(rhomb.corner3.times(1.0/chunk_ratio));
+     //rhomb.corner4.set(rhomb.corner4.times(1.0/chunk_ratio));
+     }
+     for (Block b : (Iterable<Block>)(subblock_lattice.blocks)) {
+     b.center.set(b.center.times(1.0/chunk_ratio));
+     }
+     for (Vertex v : (Iterable<Vertex>)(subblock_lattice.cells)) {
+     v.set(v.times(1.0/chunk_ratio));
+     }//*/
 
     main_lattice = lattice;//subblock_lattice;
     main_chunk_lattice = chunk_lattice;//lattice;
     if (skip_classif) {
       return;
     }
-    
+
     // Not the right place for this, but gotta get 3D coordinates for the chunk lattice.
-  for (Object o : chunk_lattice.cells) {
-    Vertex v = (Vertex)(o);
-    v.location_3D = new PVector(v.minus(chunk_lattice.fivedeew).dot(chunk_lattice.fivedee0), v.minus(chunk_lattice.fivedeew).dot(chunk_lattice.fivedee1), v.minus(chunk_lattice.fivedeew).dot(chunk_lattice.fivedee2));
-  }
-  for (Object o : chunk_lattice.rhombs) {
-    Rhomb r = (Rhomb)(o);
-    r.center_3D = new PVector(r.center.minus(chunk_lattice.fivedeew).dot(chunk_lattice.fivedee0), r.center.minus(chunk_lattice.fivedeew).dot(chunk_lattice.fivedee1), r.center.minus(chunk_lattice.fivedeew).dot(chunk_lattice.fivedee2));
-  }
+    for (Object o : chunk_lattice.cells) {
+      Vertex v = (Vertex)(o);
+      v.location_3D = new PVector(v.minus(chunk_lattice.fivedeew).dot(chunk_lattice.fivedee0), v.minus(chunk_lattice.fivedeew).dot(chunk_lattice.fivedee1), v.minus(chunk_lattice.fivedeew).dot(chunk_lattice.fivedee2));
+    }
+    for (Object o : chunk_lattice.rhombs) {
+      Rhomb r = (Rhomb)(o);
+      r.center_3D = new PVector(r.center.minus(chunk_lattice.fivedeew).dot(chunk_lattice.fivedee0), r.center.minus(chunk_lattice.fivedeew).dot(chunk_lattice.fivedee1), r.center.minus(chunk_lattice.fivedeew).dot(chunk_lattice.fivedee2));
+    }
 
     //println(str(chunk_lattice.blocks.list.size())+" chunks, "+str(lattice.blocks.list.size())+" blocks, "+str(subblock_lattice.blocks.list.size())+" sub-blocks found.");
     println("Classifying chunks...");
@@ -626,13 +631,13 @@ class chunkNetwork {
           int block_count = 0;
           for (Block b : ci.blocks) {
             /*for (Chunk s : classif2) {
-              for (Chunk si : s.instances) {
-                if (max(si.center.minus(b.center).abs().point) < 0.01) {
-                  types = types+" "+classif2.indexOf(s);
-                  block_count += 1;
-                }
-              }
-            }*/
+             for (Chunk si : s.instances) {
+             if (max(si.center.minus(b.center).abs().point) < 0.01) {
+             types = types+" "+classif2.indexOf(s);
+             block_count += 1;
+             }
+             }
+             }*/
           }
           if (block_count > 0)
             println(types);
@@ -959,7 +964,7 @@ ArrayList<Chunk> classifyChunks3D(Quasicrystal chunk_lattice, Quasicrystal latti
 
 // Cheesy conversion function
 Vertex threedee(PVector p) {
-  Vertex v = new Vertex(p.x,p.y,p.z,0,0,0);
+  Vertex v = new Vertex(p.x, p.y, p.z, 0, 0, 0);
   v.location_3D = p;
   return v;
 }
@@ -1004,12 +1009,12 @@ abstract class HierarchicalChunk<T extends HierarchicalChunkType> {
   ArrayList<Block> blocks;
   ArrayList<HierarchicalChunk> subchunks;
   ArrayList<HierarchicalChunk> superchunks;
-  
+
   // Straightforwardly returns any chunks contained in this one, instantiating
   // any not yet instantiated.
   // Note, they may also be contained in others (e.g. if they occur at a boundary).
   abstract ArrayList<? extends HierarchicalChunk> get_subchunks();
-  
+
   // Returns all direct superchunks currently instantiated, instantiating
   // at least one if there are none.
   // TODO What's the best convention here? At first I figured this function
@@ -1019,7 +1024,7 @@ abstract class HierarchicalChunk<T extends HierarchicalChunkType> {
   // in cases where the overlap at chunk boundaries is unpredictable, we
   // need information which might be hard to get.
   abstract ArrayList<? extends HierarchicalChunk> get_superchunks();
-  
+
   // Returns neighbors on all sides, instantiating superchunks as
   // necessary. Note that if applied naively, this process may not
   // terminate, for example if a lattice of chunks doesn't actually
@@ -1054,40 +1059,39 @@ abstract class HierarchicalChunkType<C extends HierarchicalChunk> {
    * that extra data for itself.
    * 
    */
-   public abstract class InnerPositionedHierarchicalChunkType extends PositionedHierarchicalChunkType<C> {
-     InnerPositionedHierarchicalChunkType() {
-       type = HierarchicalChunkType.this;
-     }
-     
-     // A constructor taking a subclass of HierarchicalChunkType needs to be implemented,
-     // which is the reason this is abstract. How to code that properly? :/
-     
-     boolean isMyType(C c) {
-       return HierarchicalChunkType.this.isMyType(c);
-     }
-  
-     boolean sameSubchunkLayout(C c) {
-       return HierarchicalChunkType.this.sameSubchunkLayout(c);
-     }
-     
-   }
-   ArrayList<InnerPositionedHierarchicalChunkType> subchunks;
-   
-   abstract boolean isMyType(C chunk);
-   
-   abstract boolean sameSubchunkLayout(C chunk);
+  public abstract class InnerPositionedHierarchicalChunkType extends PositionedHierarchicalChunkType<C> {
+    InnerPositionedHierarchicalChunkType() {
+      type = HierarchicalChunkType.this;
+    }
+
+    // A constructor taking a subclass of HierarchicalChunkType needs to be implemented,
+    // which is the reason this is abstract. How to code that properly? :/
+
+    boolean isMyType(C c) {
+      return HierarchicalChunkType.this.isMyType(c);
+    }
+
+    boolean sameSubchunkLayout(C c) {
+      return HierarchicalChunkType.this.sameSubchunkLayout(c);
+    }
+  }
+  ArrayList<InnerPositionedHierarchicalChunkType> subchunks;
+
+  abstract boolean isMyType(C chunk);
+
+  abstract boolean sameSubchunkLayout(C chunk);
 }
 
-abstract class PositionedHierarchicalChunkType<C extends HierarchicalChunk> extends HierarchicalChunkType<C>{
+abstract class PositionedHierarchicalChunkType<C extends HierarchicalChunk> extends HierarchicalChunkType<C> {
   /* This might be a really weird type of abstraction to implement, but I'm just going
    * to go with it. The idea is that any instance of HierarchicalChunkType is going to
    * have an inner class which extends PositionedHierarchicalChunkType. Instances of 
    * the inner class will know their Type to be that of their parent object. Eugh, I
    * can't really explain it properly.
    */
-   
-   Point6D pos;
-   HierarchicalChunkType type;
+
+  Point6D pos;
+  HierarchicalChunkType type;
 }
 
 // HierarchicalChunk Subclass Checklist:
@@ -1101,7 +1105,6 @@ abstract class HierarchicalChunk3D<C extends HierarchicalChunkType> extends Hier
    * constituent blocks and sub-chunks. 
    */
   PVector pos;
-  
 }
 
 abstract class HierarchicalChunk6D extends HierarchicalChunk {
@@ -1113,12 +1116,12 @@ abstract class HierarchicalChunk6D extends HierarchicalChunk {
 
 ArrayList<CubeChunkType> known_cube_types = new ArrayList<CubeChunkType>();
 
-class CubeChunk extends HierarchicalChunk3D<CubeChunkType>{
+class CubeChunk extends HierarchicalChunk3D<CubeChunkType> {
   ArrayList<CubeChunk> subchunks;
   ArrayList<CubeChunk> superchunks;
   ArrayList<CubeChunkType> known_types;
-  
-  
+
+
   public CubeChunk(PVector position, int h_level) {
     level = h_level;
     pos = position;
@@ -1129,43 +1132,43 @@ class CubeChunk extends HierarchicalChunk3D<CubeChunkType>{
     }
     type = known_types.get(0);
   }
-  
+
   public ArrayList<CubeChunk> get_subchunks() {
     // If we are level 0, we contain no chunks, and just
     // correspond to a block.
     if (level == 0) return null;
     if (subchunks == null) {
-      long scale = Math.round(Math.pow(5.0,(double)(level - 1)));
+      long scale = Math.round(Math.pow(5.0, (double)(level - 1)));
       subchunks = new ArrayList<CubeChunk>();
       // Casting to <? extends PositionedHierarchicalChunkType> is odd; probably these chunks should be manufactured 
       // within a more knowledgeable scope.
       for (PositionedHierarchicalChunkType t: (Iterable<? extends PositionedHierarchicalChunkType>)type.subchunks) {
-        subchunks.add(new CubeChunk(new PVector(t.pos.point[0]*scale+pos.x,t.pos.point[1]*scale+pos.y,t.pos.point[2]*scale+pos.z), level - 1));
+        subchunks.add(new CubeChunk(new PVector(t.pos.point[0]*scale+pos.x, t.pos.point[1]*scale+pos.y, t.pos.point[2]*scale+pos.z), level - 1));
       }
     }
     return subchunks;
   }
-  
+
   public ArrayList<CubeChunk> get_superchunks() {
     if (superchunks == null) {
       superchunks = new ArrayList<CubeChunk>();
       // We need to calculate the position of the new chunk from our own.
       // Position is interpreted as the lowest-coordinate corner; ie, voxel
       // around origin has position (-.5, -.5, -.5).
-      long scale = Math.round(Math.pow(5.0,(double)(level + 1)));
-      Point6D origin_chunk_pos = new Point6D(-scale/2,-scale/2,-scale/2,0,0,0);
-      Point6D our_pos = new Point6D(pos.x,pos.y,pos.z,0,0,0);
+      long scale = Math.round(Math.pow(5.0, (double)(level + 1)));
+      Point6D origin_chunk_pos = new Point6D(-scale/2, -scale/2, -scale/2, 0, 0, 0);
+      Point6D our_pos = new Point6D(pos.x, pos.y, pos.z, 0, 0, 0);
       Point6D chunk_scale_pos = our_pos.plus(origin_chunk_pos).times(1.0/scale);
-      Point6D new_chunk_pos = new Point6D(floor(chunk_scale_pos.point[0]),floor(chunk_scale_pos.point[1]),
-                                          floor(chunk_scale_pos.point[2]),0,0,0).times(scale).plus(origin_chunk_pos);
-      CubeChunk superchunk = new CubeChunk(new PVector(new_chunk_pos.point[0],new_chunk_pos.point[1],new_chunk_pos.point[2]), level + 1);
+      Point6D new_chunk_pos = new Point6D(floor(chunk_scale_pos.point[0]), floor(chunk_scale_pos.point[1]), 
+        floor(chunk_scale_pos.point[2]), 0, 0, 0).times(scale).plus(origin_chunk_pos);
+      CubeChunk superchunk = new CubeChunk(new PVector(new_chunk_pos.point[0], new_chunk_pos.point[1], new_chunk_pos.point[2]), level + 1);
       superchunks.add(superchunk);
       // Gotta add ourselves to the superchunk's subchunks. Since we test the nullity
       // of the subchunks list to see if we need to generate, that means adding all
       // subchunks to it.
       ArrayList<CubeChunk> new_relatives = superchunk.get_subchunks();
       for (CubeChunk c: new_relatives) {
-        if (PVector.sub(pos,c.pos).mag() < 0.5) {
+        if (PVector.sub(pos, c.pos).mag() < 0.5) {
           superchunk.subchunks.remove(c);
           superchunk.subchunks.add(this);
           break;
@@ -1175,7 +1178,7 @@ class CubeChunk extends HierarchicalChunk3D<CubeChunkType>{
     }
     return superchunks;
   }
-  
+
   public ArrayList<CubeChunk> get_neighbors() {
     /* I thought cubes would be dead simple, but this is actually a rather odd case. We can't just
      * keep asking for superchunks, since with a corner-centered lattice, there is no superchunk which
@@ -1189,74 +1192,123 @@ class CubeChunk extends HierarchicalChunk3D<CubeChunkType>{
      * which works within it. Might find some (pretty literal) edge cases which affect the overall
      * structure.
      */
-     ArrayList<CubeChunk> neighbors = new ArrayList<CubeChunk>();
-     long scale = Math.round(Math.pow(5.0,(double)(level)));
-     CubeChunk superchunk = get_superchunks().get(0);
-     ArrayList<CubeChunk> siblings = superchunk.get_subchunks();
-     
-     // Look for chunk-siblings which are adjacent to us.
-     for (CubeChunk s: siblings) {
-       PVector relative_position = PVector.sub(pos, s.pos);
-       relative_position.x = round(relative_position.x);
-       relative_position.y = round(relative_position.y);
-       relative_position.z = round(relative_position.z);
-       // We're looking for relative positions of (-1,0,0), (1,0,0), (0,-1,0), (0,1,0), (0,0,-1), or (0,0,1).
-       // For non-cube shapes, a list like this would still be sufficient; and the list could generally be
-       // provided by the relevant subclass of HierarchicalChunkType. However, if one instance of 
-       // HierarchicalChunkType represents various rotations of the same pattern, the proper list would
-       // depend on the rotation.
-       if (relative_position.x == 1.0 && relative_position.y == 0.0 && relative_position.z == 0.0 ||
-           relative_position.x == -1.0 && relative_position.y == 0.0 && relative_position.z == 0.0 ||
-           relative_position.x == 0.0 && relative_position.y == 1.0 && relative_position.z == 0.0 ||
-           relative_position.x == 0.0 && relative_position.y == -1.0 && relative_position.z == 0.0 ||
-           relative_position.x == 0.0 && relative_position.y == 0.0 && relative_position.z == 1.0 ||
-           relative_position.x == 0.0 && relative_position.y == 0.0 && relative_position.z == -1.0)
-       {
-         neighbors.add(s);
-       }
-     }
-     
-     if (neighbors.size() != 6) {
-       // Now we do a recursive search upwards into superchunks. Don't want this to instantiate too much
-       // more than it needs to. However, we also don't want to be too stingy, or else we'll just end up
-       // doing these searches a lot more. Also... we could literally just instantiate any missing neighbors,
-       // but we want to avoid any need to search through non-hierarchically and see if chunks are
-       // already instantiated.
-       // ... But technically in a cubic grid, searching based on chunk coordinates should be easy and
-       // should probably be done in favor of the present method.
-       ArrayList<CubeChunk> super_neighbors = superchunk.get_neighbors();
-       // We must be adjacent to one or more of these.
-       
-     }
-     
-     return neighbors;
+
+
+
+    ArrayList<CubeChunk> neighbors = new ArrayList<CubeChunk>();
+    long scale = Math.round(Math.pow(5.0, (double)(level)));
+    CubeChunk superchunk = get_superchunks().get(0);
+    ArrayList<CubeChunk> siblings = superchunk.get_subchunks();
+
+    // Look for chunk-siblings which are adjacent to us.
+    ArrayList<CubeChunk> adjacent = checkAdjacent(siblings);
+    for (CubeChunk a: adjacent) neighbors.add(a);
+
+    if (neighbors.size() != 6) {
+      // Now we do a recursive search upwards into superchunks. Don't want this to instantiate too much
+      // more than it needs to. However, we also don't want to be too stingy, or else we'll just end up
+      // doing these searches a lot more. Also... we could literally just instantiate any missing neighbors,
+      // but we want to avoid any need to search through non-hierarchically and see if chunks are
+      // already instantiated.
+      // ... But technically in a cubic grid, searching based on chunk coordinates should be easy and
+      // should probably be done in favor of the present method.
+      ArrayList<CubeChunk> super_neighbors = superchunk.get_neighbors();
+      // We must be adjacent to one or more of these. Any we're adjacent to also holds
+      // a neighboring chunk.
+      for (CubeChunk scn : super_neighbors) {
+        PVector scn_max = PVector.add(scn.pos, new PVector(scale, scale, scale));
+        PVector our_max = PVector.add(scn.pos, new PVector(scale, scale, scale));
+        PVector scn_min = scn.pos;
+        PVector our_min = pos;
+        if (abs(scn_max.x - our_min.x) < 0.5 || abs(scn_min.x - our_max.x) < 0.5) {
+          // Since this is a neighbor of superchunk, our other dimensions must fall
+          // within its other dimenions. TODO add all the other triangle inequalities here
+          assert (abs(our_min.y - scn_min.y) < abs(scn_min.y - scn_max.y)) : 
+          "Impossible chunk neighbor relationship (in y)";
+          assert (abs(our_min.z - scn_min.z) < abs(scn_min.z - scn_max.z)) : 
+          "Impossible chunk neighbor relationship (in z)";
+          adjacent = checkAdjacent(scn.get_subchunks());
+          for (CubeChunk a : adjacent) neighbors.add(a);
+        }
+        if (abs(scn_max.y - our_min.y) < 0.5 || abs(scn_min.y - our_max.y) < 0.5) {
+          assert (abs(our_min.x - scn_min.x) < abs(scn_min.x - scn_max.x)) : 
+          "Impossible chunk neighbor relationship (in y)";
+          assert (abs(our_min.z - scn_min.z) < abs(scn_min.z - scn_max.z)) : 
+          "Impossible chunk neighbor relationship (in z)";
+          adjacent = checkAdjacent(scn.get_subchunks());
+          for (CubeChunk a : adjacent) neighbors.add(a);
+        }
+        if (abs(scn_max.z - our_min.z) < 0.5 || abs(scn_min.z - our_max.z) < 0.5) {
+          assert (abs(our_min.x - scn_min.x) < abs(scn_min.x - scn_max.x)) : 
+          "Impossible chunk neighbor relationship (in y)";
+          assert (abs(our_min.y - scn_min.y) < abs(scn_min.y - scn_max.y)) : 
+          "Impossible chunk neighbor relationship (in z)";
+          adjacent = checkAdjacent(scn.get_subchunks());
+          for (CubeChunk a : adjacent) neighbors.add(a);
+        }
+      }
+      // Now we should have 6 neighbors unless the lattice is basically broken.
+      assert (neighbors.size() == 6): "Unable to produce 6 neighbors";
+    }
+
+    return neighbors;
   }
+
+  ArrayList<CubeChunk> checkAdjacent(ArrayList<CubeChunk> siblings) {
+    // Given a list of chunks (assumed to be of the same level as us), returns those which
+    // are orthogonally adjacent to us.
+    ArrayList<CubeChunk> neighbors = new ArrayList<CubeChunk>();
+
+    for (CubeChunk s : siblings) {
+      PVector relative_position = PVector.sub(pos, s.pos);
+      relative_position.x = round(relative_position.x);
+      relative_position.y = round(relative_position.y);
+      relative_position.z = round(relative_position.z);
+      // We're looking for relative positions of (-1,0,0), (1,0,0), (0,-1,0), (0,1,0), (0,0,-1), or (0,0,1).
+      // For non-cube shapes, a list like this would still be sufficient; and the list could generally be
+      // provided by the relevant subclass of HierarchicalChunkType. However, if one instance of 
+      // HierarchicalChunkType represents various rotations of the same pattern, the proper list would
+      // depend on the rotation.
+      if (relative_position.x == 1.0 && relative_position.y == 0.0 && relative_position.z == 0.0 ||
+        relative_position.x == -1.0 && relative_position.y == 0.0 && relative_position.z == 0.0 ||
+        relative_position.x == 0.0 && relative_position.y == 1.0 && relative_position.z == 0.0 ||
+        relative_position.x == 0.0 && relative_position.y == -1.0 && relative_position.z == 0.0 ||
+        relative_position.x == 0.0 && relative_position.y == 0.0 && relative_position.z == 1.0 ||
+        relative_position.x == 0.0 && relative_position.y == 0.0 && relative_position.z == -1.0)
+      {
+        neighbors.add(s);
+      }
+    }
+    return neighbors;
+  }
+
+  // TODO For a cubic lattice, I can keep subchunks in an array and provide methods for obtaining the chunk
+  // at particular coordinates. Do that and make the get_neighbors function use it.
 }
 
 class CubeChunkType extends HierarchicalChunkType<CubeChunk> {
-  
+
   class PositionedCubeChunkType extends InnerPositionedHierarchicalChunkType {
     public PositionedCubeChunkType(CubeChunkType h) {
       // Hoping this works like I think it does
       h.super();
       assert(type == CubeChunkType.this);
     }
-    
   }
-    
+
   public CubeChunkType() {
     // There's only one chunk type in a cubic lattice. We'll do 5x5x5 chunks
     for (int i = 0; i < 5; i++) for (int j = 0; j < 5; j++) for (int k = 0; k < 5; k++) {
-          PositionedCubeChunkType subchunk = new PositionedCubeChunkType(this);
-          subchunk.pos = new Point6D(i,j,k,0,0,0);
-          subchunks.add(subchunk);
+      PositionedCubeChunkType subchunk = new PositionedCubeChunkType(this);
+      subchunk.pos = new Point6D(i, j, k, 0, 0, 0);
+      subchunks.add(subchunk);
     }
   }
-  
+
   boolean isMyType(CubeChunk c) {
     return true;
   }
-  
+
   boolean sameSubchunkLayout(CubeChunk c) {
     return true;
   }
