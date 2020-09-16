@@ -56,10 +56,10 @@
  * TODO Dual of Danzer tiling (Aranda, Lasch, Bosia, 2007)
  * 
  *****************************************/
-//import queasycam.*;
+
 boolean test_assertions = true;
 boolean picky_assertions = false;
-boolean render_raw_quasicrystal = true;
+boolean render_raw_gridpatch = false;
 
 float driftspeed = 1;
 
@@ -92,8 +92,7 @@ float CameraRZ = 0;
 QueasyCam cam;
 PMatrix3D originalMatrix;
 
-Quasicrystal main_lattice;
-Quasicrystal main_chunk_lattice;
+GridPatch main_lattice;
 
 void setup() {
   size(displayWidth, displayHeight, P3D);
@@ -154,7 +153,7 @@ int rotateColor(int c) {
 }
 
 void setupRender() {
-  if (render_raw_quasicrystal) {
+  if (render_raw_gridpatch) {
     // Just generating one chunk of lattice to render in.
     // Mainly done in generate(), we just finish it off with conversions
     // to 3D and some filled-in blocks.
@@ -184,18 +183,6 @@ void setupRender() {
       selection = floor(random(main_lattice.blocks.size()));
       main_lattice.blocks.list.get(selection).value = ceil(random(0, 20));
     }
-    for (Object o : main_chunk_lattice.cells) {
-      Vertex v = (Vertex)(o);
-      v.location_3D = new PVector(v.minus(main_chunk_lattice.fivedeew).dot(main_chunk_lattice.fivedee0), v.minus(main_chunk_lattice.fivedeew).dot(main_chunk_lattice.fivedee1), v.minus(main_chunk_lattice.fivedeew).dot(main_chunk_lattice.fivedee2));
-    }
-    for (Object o : main_chunk_lattice.rhombs) {
-      Rhomb r = (Rhomb)(o);
-      r.center_3D = new PVector(r.center.minus(main_chunk_lattice.fivedeew).dot(main_chunk_lattice.fivedee0), r.center.minus(main_chunk_lattice.fivedeew).dot(main_chunk_lattice.fivedee1), r.center.minus(main_chunk_lattice.fivedeew).dot(main_chunk_lattice.fivedee2));
-    }
-    for (int loopvar = 0; loopvar < 80; loopvar++) {
-      selection = floor(random(main_chunk_lattice.blocks.size()));
-      main_chunk_lattice.blocks.list.get(selection).value = ceil(random(0, 20));
-    }
   } else {
     // Chunks will be generated as needed.
   }
@@ -217,6 +204,7 @@ void render() {
   //vertex(0,0,0);
 
   ArrayList<Rhomb> pointedAt = new ArrayList<Rhomb>();
+  BlockStore trigger_generation = new BlockStore(0.0001);
   for (Block block : (Iterable<Block>)(main_lattice.blocks)) {
     if (block.value > 0) {
       for (Rhomb face : block.sides) {
@@ -224,6 +212,12 @@ void render() {
         if (face.parents.size() == 2) {
           if (face.parents.get(0).value > 0 && face.parents.get(1).value > 0) {
             hasair = false;
+          }
+        } else {
+          // We could generate more voxels here
+          if (face.center_3D.copy().sub(cam.position).dot(cam.getForward()) < 1) {
+            if (onCamera(face))
+              trigger_generation.add(face.parents.get(0));
           }
         }
         if (hasair) {
@@ -287,6 +281,13 @@ void render() {
       vertex(closest.corner3.location_3D.x, closest.corner3.location_3D.y, closest.corner3.location_3D.z);
       endShape(CLOSE);
     } else {
+      // Came up against non-generated grid. Make more if it's not too distant.
+      if (closestDist < 10) {
+        class registry implements InstantiationCallback<Block> { public void register(Block b) {
+          if (!main_lattice.blocks.contains(b)) main_lattice.addBlock(b);
+        }}
+        block.parents.get(0).get_neighbors(new registry());
+      }
       stroke(255, 255, 0);
       fill(255-(255-block.value*25)*0.8, 255-(255-block.value*10)*0.8, 255-block.value*25*0.8);
       if (clicked) {
@@ -302,21 +303,42 @@ void render() {
       endShape(CLOSE);
     }
   }
-  for (Block b : (Iterable<Block>)(main_chunk_lattice.blocks)) {
-    if (b.value > 0) {
-      for (Rhomb r : b.sides) {
-        noFill();
-        stroke(255, 0, 255);
-        beginShape();
-        vertex(r.corner1.location_3D.x, r.corner1.location_3D.y, r.corner1.location_3D.z);
-        vertex(r.corner2.location_3D.x, r.corner2.location_3D.y, r.corner2.location_3D.z);
-        vertex(r.corner4.location_3D.x, r.corner4.location_3D.y, r.corner4.location_3D.z);
-        vertex(r.corner3.location_3D.x, r.corner3.location_3D.y, r.corner3.location_3D.z);
-        endShape(CLOSE);
-      }
-    }
-  }
   drawCrosshair();
+  class registry implements InstantiationCallback<Block> { public void register(Block b) {
+    if (!main_lattice.blocks.contains(b)) main_lattice.addBlock(b);
+  }}
+  // Generating in nearby chunks is off for now. Even at tiny radius, it ends up very dramatically
+  // slower than generating in just what the crosshair points at. I need to focus on generating
+  // just stuff that shows; not triggering overlapping generation requests at once; and using the
+  // chunk structure to guide prioritization.
+  /*float distance = 10;
+  for (Block b: trigger_generation) {
+    float current_distance = b.sides.get(0).center_3D.copy().sub(cam.position).dot(cam.getForward());
+    if (current_distance < distance) {
+      b.parents.get(0).get_neighbors(new registry());
+      distance = current_distance/3;
+    }
+  }*/
+}
+
+// TODO This repeats calculations which are in cameraPoint. One strategy
+// would be to have a single function which returns several pieces of
+// information about a rhombus' location.
+boolean onCamera(Rhomb face) {
+    // Use camera as origin
+  PVector c1 = face.corner1.location_3D.copy().sub(cam.position);
+  PVector c2 = face.corner2.location_3D.copy().sub(cam.position);
+  PVector c3 = face.corner3.location_3D.copy().sub(cam.position);
+  PVector c4 = face.corner4.location_3D.copy().sub(cam.position);
+  float c1f = cam.forward.dot(c1);
+  float c2f = cam.forward.dot(c2);
+  float c3f = cam.forward.dot(c3);
+  float c4f = cam.forward.dot(c4);
+  // Don't want to do any more multiplication unless we have to
+  if (c1f > 0 && c2f > 0 && c3f > 0 && c4f > 0) {
+    return true;
+  }
+  return false;
 }
 
 boolean cameraPoint(Rhomb face) {
@@ -418,15 +440,15 @@ void generate() {
   //float rad = 12;//12;
   //float chunk_ratio = 2;
 
-  if (render_raw_quasicrystal) {
+  if (render_raw_gridpatch) {
     chunkNetwork cn = new chunkNetwork(w, x, y, z);
   } else {
     // TODO move some of this setup into the CubeChunk class, like a getFirstChunk() or init() method or something
-    CubeChunk first_chunk = new CubeChunk(new PVector(-0.5,-0.5,-0.5), 1);
-    //main_lattice = new GridPatch();
-    //BlockStore firstblocks = first_chunk.get_blocks();
-    //for (Block b: firstblocks)
-    //  main_lattice.addBlock(b);
+    CubeChunk first_chunk = new CubeChunk(new PVector(-0.5,-0.5,-0.5), 0);
+    main_lattice = new GridPatch();
+    BlockStore firstblocks = first_chunk.get_blocks();
+    for (Block b: firstblocks)
+      main_lattice.addBlock(b);
   }
 
   /*lattice = new Quasicrystal(w, x, y, z, rad);
@@ -614,7 +636,7 @@ class chunkNetwork {
      }//*/
 
     main_lattice = lattice;//subblock_lattice;
-    main_chunk_lattice = chunk_lattice;//lattice;
+    
     if (skip_classif) {
       return;
     }
@@ -1001,6 +1023,12 @@ class Chunk extends Block {
   }
 }
 
+// TODO The InstantiationCallback thing didn't fully work out. I want to allow some flexibility in how subclasses of HierarchicalChunk
+// use these... mainly, there might be separate callbacks for chunks vs. blocks.
+interface InstantiationCallback<T> {
+  void register(T t);
+}
+
 // TODO Add some tests which try and enforce the overall logic here.
 //      - I can't make known_types static so every instance needs to
 //        point to the same single ArrayList.
@@ -1059,7 +1087,7 @@ abstract class HierarchicalChunk<T extends HierarchicalChunkType> {
   // Is there a way to capture that here in the abstract class? Maybe
   // what I should do is just always ask for neighbors on a chunk of the
   // appropriate scale - replace "side or vertex" with sub-chunks.
-  abstract ArrayList<? extends HierarchicalChunk> get_neighbors();
+  abstract ArrayList<? extends HierarchicalChunk> get_neighbors(InstantiationCallback<Block> i);
 }
 
 abstract class HierarchicalChunkType<C extends HierarchicalChunk> {
@@ -1157,7 +1185,10 @@ class CubeChunk extends HierarchicalChunk3D<CubeChunkType> {
       // Casting to <? extends PositionedHierarchicalChunkType> is odd; probably these chunks should be manufactured 
       // within a more knowledgeable scope.
       for (PositionedHierarchicalChunkType t: (Iterable<? extends PositionedHierarchicalChunkType>)type.subchunks) {
-        subchunks.add(new CubeChunk(new PVector(t.pos.point[0]*scale+pos.x, t.pos.point[1]*scale+pos.y, t.pos.point[2]*scale+pos.z), level - 1));
+        CubeChunk new_subchunk = new CubeChunk(new PVector(t.pos.point[0]*scale+pos.x, t.pos.point[1]*scale+pos.y, t.pos.point[2]*scale+pos.z), level - 1);
+        new_subchunk.superchunks = new ArrayList<CubeChunk>();
+        new_subchunk.superchunks.add(this);
+        subchunks.add(new_subchunk);
       }
     }
     return subchunks;
@@ -1169,10 +1200,10 @@ class CubeChunk extends HierarchicalChunk3D<CubeChunkType> {
       // We need to calculate the position of the new chunk from our own.
       // Position is interpreted as the lowest-coordinate corner; ie, voxel
       // around origin has position (-.5, -.5, -.5).
-      long scale = Math.round(Math.pow(5.0, (double)(level + 1)));
-      Point6D origin_chunk_pos = new Point6D(-scale/2, -scale/2, -scale/2, 0, 0, 0);
+      long scale = Math.round(Math.pow(5.0, (double)(level+1)));
+      Point6D origin_chunk_pos = new Point6D(-scale/2.0, -scale/2.0, -scale/2.0, 0, 0, 0);
       Point6D our_pos = new Point6D(pos.x, pos.y, pos.z, 0, 0, 0);
-      Point6D chunk_scale_pos = our_pos.plus(origin_chunk_pos).times(1.0/scale);
+      Point6D chunk_scale_pos = our_pos.minus(origin_chunk_pos).times(1.0/scale);
       Point6D new_chunk_pos = new Point6D(floor(chunk_scale_pos.point[0]), floor(chunk_scale_pos.point[1]), 
         floor(chunk_scale_pos.point[2]), 0, 0, 0).times(scale).plus(origin_chunk_pos);
       CubeChunk superchunk = new CubeChunk(new PVector(new_chunk_pos.point[0], new_chunk_pos.point[1], new_chunk_pos.point[2]), level + 1);
@@ -1188,12 +1219,17 @@ class CubeChunk extends HierarchicalChunk3D<CubeChunkType> {
           break;
         }
       }
-      assert (superchunk.subchunks.contains(this)): "Failed to place chunk in its superchunk";
+      assert (superchunk.subchunks.contains(this)): "Failed to place chunk in its superchunk"; //<>//
     }
     return superchunks;
   }
-
+  
   public ArrayList<CubeChunk> get_neighbors() {
+    class nullregistry implements InstantiationCallback<Block> { public void register(Block b) {}}
+    return get_neighbors(new nullregistry());
+  }
+
+  public ArrayList<CubeChunk> get_neighbors(InstantiationCallback<Block> block_registry) {
     /* I thought cubes would be dead simple, but this is actually a rather odd case. We can't just
      * keep asking for superchunks, since with a corner-centered lattice, there is no superchunk which
      * reaches over any axis. So if the current chunk has any face with a zero-coordinate, we need to 
@@ -1207,18 +1243,21 @@ class CubeChunk extends HierarchicalChunk3D<CubeChunkType> {
      * structure.
      */
 
-
-
     ArrayList<CubeChunk> neighbors = new ArrayList<CubeChunk>();
     long scale = Math.round(Math.pow(5.0, (double)(level)));
     CubeChunk superchunk = get_superchunks().get(0);
     ArrayList<CubeChunk> siblings = superchunk.get_subchunks();
+    
+    // We just made a bunch of territory; pass them on so they can be rendered
+    if (level == 0) {
+      for (CubeChunk sib: siblings) for (Block newblock: sib.get_blocks()) block_registry.register(newblock);
+    }
 
     // Look for chunk-siblings which are adjacent to us.
     ArrayList<CubeChunk> adjacent = checkAdjacent(siblings);
     for (CubeChunk a: adjacent) neighbors.add(a);
 
-    if (neighbors.size() != 6) {
+    if (neighbors.size() != 6) { //<>//
       // Now we do a recursive search upwards into superchunks. Don't want this to instantiate too much
       // more than it needs to. However, we also don't want to be too stingy, or else we'll just end up
       // doing these searches a lot more. Also... we could literally just instantiate any missing neighbors,
@@ -1230,8 +1269,8 @@ class CubeChunk extends HierarchicalChunk3D<CubeChunkType> {
       // We must be adjacent to one or more of these. Any we're adjacent to also holds
       // a neighboring chunk.
       for (CubeChunk scn : super_neighbors) {
-        PVector scn_max = PVector.add(scn.pos, new PVector(scale, scale, scale));
-        PVector our_max = PVector.add(scn.pos, new PVector(scale, scale, scale));
+        PVector scn_max = PVector.add(scn.pos, new PVector(scale*5, scale*5, scale*5));
+        PVector our_max = PVector.add(pos, new PVector(scale, scale, scale));
         PVector scn_min = scn.pos;
         PVector our_min = pos;
         if (abs(scn_max.x - our_min.x) < 0.5 || abs(scn_min.x - our_max.x) < 0.5) {
@@ -1241,6 +1280,9 @@ class CubeChunk extends HierarchicalChunk3D<CubeChunkType> {
           "Impossible chunk neighbor relationship (in y)";
           assert (abs(our_min.z - scn_min.z) < abs(scn_min.z - scn_max.z)) : 
           "Impossible chunk neighbor relationship (in z)";
+          if (level == 0) {
+            for (CubeChunk sib: scn.get_subchunks()) for (Block newblock: sib.get_blocks()) block_registry.register(newblock);
+          }
           adjacent = checkAdjacent(scn.get_subchunks());
           for (CubeChunk a : adjacent) neighbors.add(a);
         }
@@ -1249,6 +1291,9 @@ class CubeChunk extends HierarchicalChunk3D<CubeChunkType> {
           "Impossible chunk neighbor relationship (in y)";
           assert (abs(our_min.z - scn_min.z) < abs(scn_min.z - scn_max.z)) : 
           "Impossible chunk neighbor relationship (in z)";
+          if (level == 0) {
+            for (CubeChunk sib: scn.get_subchunks()) for (Block newblock: sib.get_blocks()) block_registry.register(newblock);
+          }
           adjacent = checkAdjacent(scn.get_subchunks());
           for (CubeChunk a : adjacent) neighbors.add(a);
         }
@@ -1257,6 +1302,9 @@ class CubeChunk extends HierarchicalChunk3D<CubeChunkType> {
           "Impossible chunk neighbor relationship (in y)";
           assert (abs(our_min.y - scn_min.y) < abs(scn_min.y - scn_max.y)) : 
           "Impossible chunk neighbor relationship (in z)";
+          if (level == 0) {
+            for (CubeChunk sib: scn.get_subchunks()) for (Block newblock: sib.get_blocks()) block_registry.register(newblock);
+          }
           adjacent = checkAdjacent(scn.get_subchunks());
           for (CubeChunk a : adjacent) neighbors.add(a);
         }
@@ -1271,13 +1319,14 @@ class CubeChunk extends HierarchicalChunk3D<CubeChunkType> {
   ArrayList<CubeChunk> checkAdjacent(ArrayList<CubeChunk> siblings) {
     // Given a list of chunks (assumed to be of the same level as us), returns those which
     // are orthogonally adjacent to us.
+    long scale = Math.round(Math.pow(5.0, (double)(level))); //<>//
     ArrayList<CubeChunk> neighbors = new ArrayList<CubeChunk>();
 
     for (CubeChunk s : siblings) {
       PVector relative_position = PVector.sub(pos, s.pos);
-      relative_position.x = round(relative_position.x);
-      relative_position.y = round(relative_position.y);
-      relative_position.z = round(relative_position.z);
+      relative_position.x = round(relative_position.x)/scale;
+      relative_position.y = round(relative_position.y)/scale;
+      relative_position.z = round(relative_position.z)/scale;
       // We're looking for relative positions of (-1,0,0), (1,0,0), (0,-1,0), (0,1,0), (0,0,-1), or (0,0,1).
       // For non-cube shapes, a list like this would still be sufficient; and the list could generally be
       // provided by the relevant subclass of HierarchicalChunkType. However, if one instance of 
@@ -1299,10 +1348,12 @@ class CubeChunk extends HierarchicalChunk3D<CubeChunkType> {
   // TODO For a cubic lattice, I can keep subchunks in an array and provide methods for obtaining the chunk
   // at particular coordinates. Do that and make the get_neighbors function use it.
   
+  // This method can cause all subchunks to be instantiated! Should not be called on higher-level chunks.
   BlockStore get_blocks() {
     if (blocks == null) {
       blocks = new BlockStore(0.25);// Pretty sure this huge tolerance is good here
       if (level > 0) {
+        ArrayList<CubeChunk> subchunks = get_subchunks();
         for (CubeChunk c: subchunks) {
           BlockStore subchunk_blocks = c.get_blocks();
           for (Block b: subchunk_blocks) {
@@ -1312,19 +1363,27 @@ class CubeChunk extends HierarchicalChunk3D<CubeChunkType> {
         }
       } else {
         // At level zero we contain one block of our own shape.
-        Block us_as_block = new Block(new Point6D(pos.x+0.5,pos.y+0.5,pos.z+0.5,0,0,0));
+        Block us_as_block = new Block(pos.x+0.5,pos.y+0.5,pos.z+0.5, 0, 0, 0);
         for (int addin=0; addin<=1; addin++) for (int offset=0;offset<3;offset++) {
           float[] a = {addin,0,0};
-          Point6D addin_point = new Point6D(a[(0+offset)%3],a[(1+offset)%3],a[(2+offset)%3],0,0,0);
+          float[] addin_point = {a[(0+offset)%3],a[(1+offset)%3],a[(2+offset)%3]};
           float[] x = {0,1,0};
           float[] y = {0,0,1};
-          Point6D dim1 = new Point6D(x[(0+offset)%3],x[(1+offset)%3],x[(2+offset)%3],0,0,0);
-          Point6D dim2 = new Point6D(y[(0+offset)%3],y[(1+offset)%3],y[(2+offset)%3],0,0,0);
-          us_as_block.sides.add(new Rhomb(new Vertex(pos.x + addin_point.point[0],pos.y + addin_point.point[1],pos.z + addin_point.point[2],0,0,0),
-                                          new Vertex(pos.x+dim1.point[0] + addin_point.point[0],pos.y+dim1.point[1] + addin_point.point[1],pos.z+dim1.point[2] + addin_point.point[2],0,0,0),
-                                          new Vertex(pos.x+dim2.point[0] + addin_point.point[0],pos.y+dim2.point[1] + addin_point.point[1],pos.z+dim2.point[2] + addin_point.point[2],0,0,0),
-                                          new Vertex(pos.x+dim1.point[0]+dim2.point[0] + addin_point.point[0],pos.y+dim1.point[1]+dim2.point[1] + addin_point.point[1],pos.z+dim1.point[2]+dim2.point[2] + addin_point.point[2],0,0,0)));
+          float[] dim1 = {x[(0+offset)%3],x[(1+offset)%3],x[(2+offset)%3]};
+          float[] dim2 = {y[(0+offset)%3],y[(1+offset)%3],y[(2+offset)%3]};
+          Rhomb new_side = new Rhomb(new Vertex(pos.x + addin_point[0],pos.y + addin_point[1],pos.z + addin_point[2]),
+                                          new Vertex(pos.x+dim1[0] + addin_point[0],pos.y+dim1[1] + addin_point[1],pos.z+dim1[2] + addin_point[2]),
+                                          new Vertex(pos.x+dim2[0] + addin_point[0],pos.y+dim2[1] + addin_point[1],pos.z+dim2[2] + addin_point[2]),
+                                          new Vertex(pos.x+dim1[0]+dim2[0] + addin_point[0],pos.y+dim1[1]+dim2[1] + addin_point[1],pos.z+dim1[2]+dim2[2] + addin_point[2]));
+          new_side.center_3D = new PVector(new_side.center.point[0],new_side.center.point[1],new_side.center.point[2]);
+          new_side.parents.add(us_as_block);
+          us_as_block.sides.add(new_side);
         }
+        // Simplest terrain generation: things below zero are filled in.
+        if (pos.y > -1) us_as_block.value = 1;
+        else us_as_block.value = 0;
+        us_as_block.parents = new ArrayList<HierarchicalChunk>();
+        us_as_block.parents.add(this);
         blocks.add(us_as_block);
       }
     }
@@ -1344,6 +1403,7 @@ class CubeChunkType extends HierarchicalChunkType<CubeChunk> {
   }
 
   public CubeChunkType() {
+    subchunks = new ArrayList<InnerPositionedHierarchicalChunkType>();
     // There's only one chunk type in a cubic lattice. We'll do 5x5x5 chunks
     for (int i = 0; i < 5; i++) for (int j = 0; j < 5; j++) for (int k = 0; k < 5; k++) {
       PositionedCubeChunkType subchunk = new PositionedCubeChunkType(this);

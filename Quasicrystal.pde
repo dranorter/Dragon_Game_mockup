@@ -7,7 +7,9 @@
  *
  **********************************************/
  
-public class GridPatch {
+ // TODO Change every float to double (and every int to long?)
+ 
+public class GridPatch implements InstantiationCallback<Block>{
     // Tolerance is used when checking whether two vertices are equal.
   float tolerance = 0.0001;
   
@@ -20,11 +22,28 @@ public class GridPatch {
   }
   
   public void addBlock(Block b) {
-    blocks.add(b);
+    // Integrate with existing grid
+    Block return_value = blocks.add(b);
+    assert (return_value == b): "Added a block which already existed";
+    ArrayList<Rhomb> to_remove = new ArrayList<Rhomb>();
+    ArrayList<Rhomb> to_add = new ArrayList<Rhomb>();
     for (Rhomb r: b.sides) {
-      rhombs.add(r);
+      Rhomb existing_rhomb = rhombs.add(r);
+      if (existing_rhomb != r) {
+        // Side already existed; merge the two
+        for (Block parent: r.parents) if (!existing_rhomb.parents.contains(parent)) existing_rhomb.parents.add(parent);
+        to_remove.add(r);
+        to_add.add(existing_rhomb);
+        // TODO Is there a nice way to merge the two, such that I don't have to keep track of whether other objects might
+        // remember the old one? I could add merge functionality to the rhombus class, where they notify one another that
+        // they have merged, and then send further notifications if any changes occur; but keeping both around is pointless.
+      }
     }
+    for (Rhomb extra: to_remove) b.sides.remove(extra);
+    for (Rhomb existing: to_add) b.sides.add(existing);
   }
+  
+  void register(Block b) {addBlock(b);}
 }
 
 // TODO want different grids easily available to construct.
@@ -1124,7 +1143,7 @@ class Block {
   ArrayList<Block> prev;
   ArrayList<Block> next;
   ArrayList<Rhomb> sides;
-  ArrayList<Chunk> parents;
+  ArrayList<HierarchicalChunk> parents;
   Point6D center;
   int value;
   int nextValue;
@@ -1143,6 +1162,11 @@ class Block {
     // been generated yet". When something requests the dummy, it could 
     // then be generated in.
   }
+  
+  public Block(float a, float b, float c, float d, float e, float f) {
+    this(new Point6D(a,b,c,d,e,f));
+  }
+  
 }
 
 public class Point6D {
@@ -1345,6 +1369,12 @@ class Vertex extends Point6D {
   public Vertex (float[] p) {
     super(p);
   }
+  
+  public Vertex (float x, float y, float z) {
+    super(x,y,z,0,0,0);
+    location_3D = new PVector(x,y,z);
+  }
+  
   public Vertex copy() {
     return new Vertex(super.copy().point);
   }
@@ -1377,7 +1407,6 @@ abstract class Point6DStore<V> implements Iterable<V> {
     list = new ArrayList<V>();
   }
 
-  // TODO Make iterable have right type
   // TODO Allow removal of items
   // TODO Support get() queries with wider tolerances; use to optimize chunk classification.
   // TODO There is almost complete overlap between code in contains(), add(), and get(). Find a clean way to abstract.
