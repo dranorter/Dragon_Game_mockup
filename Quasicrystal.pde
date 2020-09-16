@@ -6,14 +6,32 @@
  * Daniel Demski
  *
  **********************************************/
+ 
+public class GridPatch {
+    // Tolerance is used when checking whether two vertices are equal.
+  float tolerance = 0.0001;
+  
+  RhombStore rhombs;
+  BlockStore blocks;
+  
+  public GridPatch() {
+    rhombs = new RhombStore(tolerance);
+    blocks = new BlockStore(tolerance);
+  }
+  
+  public void addBlock(Block b) {
+    blocks.add(b);
+    for (Rhomb r: b.sides) {
+      rhombs.add(r);
+    }
+  }
+}
 
 // TODO want different grids easily available to construct.
-public class Quasicrystal {
+public class Quasicrystal extends GridPatch{
   // Radius determines side length of cube, so how many
   // be found scales as its cube.
   float radius = 4;
-  // Tolerance is used when checking whether two vertices are equal.
-  float tolerance = 0.0001;
 
   Point6D fivedeex = new Point6D(new float[]{random(-1, 1), random(-1, 1), random(-1, 1), random(-1, 1), random(-1, 1), random(-1, 1)});
   Point6D fivedeey = new Point6D(new float[]{random(-1, 1), random(-1, 1), random(-1, 1), random(-1, 1), random(-1, 1), random(-1, 1)});
@@ -1346,7 +1364,7 @@ class Vertex extends Point6D {
 }
 
 // TODO Create version which uses integer coordinates
-abstract class Point6DStore<V> implements Iterable {
+abstract class Point6DStore<V> implements Iterable<V> {
   // TODO make list and storage private, deal with the consequences properly.
   java.util.Dictionary[] storage;
   ArrayList<V> list;
