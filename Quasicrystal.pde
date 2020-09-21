@@ -13,22 +13,30 @@ public class GridPatch implements InstantiationCallback<Block>{
     // Tolerance is used when checking whether two vertices are equal.
   float tolerance = 0.0001;
   
-  RhombStore rhombs;
-  BlockStore blocks;
+  ArrayList<RhombStore> rhombs;
+  //BlockStore blocks;
+  ArrayList<BlockStore> blocks;
+  ArrayList<HierarchicalChunk> topChunks;
   
   public GridPatch() {
-    rhombs = new RhombStore(tolerance);
-    blocks = new BlockStore(tolerance);
+    rhombs = new ArrayList<RhombStore>();
+    blocks = new ArrayList<BlockStore>();
+    topChunks = new ArrayList<HierarchicalChunk>();
   }
   
   public void addBlock(Block b) {
+    // Check that a BlockStore exists for this level
+    while (b.parents.get(0).level >= blocks.size())
+      blocks.add(new BlockStore(tolerance));
+      rhombs.add(new RhombStore(tolerance));
+    
     // Integrate with existing grid
-    Block return_value = blocks.add(b);
+    Block return_value = blocks.get(b.parents.get(0).level).add(b);
     assert (return_value == b): "Added a block which already existed";
     ArrayList<Rhomb> to_remove = new ArrayList<Rhomb>();
     ArrayList<Rhomb> to_add = new ArrayList<Rhomb>();
     for (Rhomb r: b.sides) {
-      Rhomb existing_rhomb = rhombs.add(r);
+      Rhomb existing_rhomb = rhombs.get(b.parents.get(0).level).add(r);
       if (existing_rhomb != r) {
         // Side already existed; merge the two
         for (Block parent: r.parents) if (!existing_rhomb.parents.contains(parent)) existing_rhomb.parents.add(parent);
@@ -41,6 +49,42 @@ public class GridPatch implements InstantiationCallback<Block>{
     }
     for (Rhomb extra: to_remove) b.sides.remove(extra);
     for (Rhomb existing: to_add) b.sides.add(existing);
+    
+    // Update list of top-level chunks if necessary
+    // TODO Overall procedure is to climb by grabbing a chunk off "unaccounted" and
+    // then adding its superchunks to "unaccounted". In single-superchunk cases,
+    // might be faster to climb all at once.
+    // TODO Also, as the world gets larger, if the list of top chunks ever starts
+    // getting slow to search, ought to replace it with a HierarchicalChunkStore.
+    ArrayList<HierarchicalChunk> unaccounted = new ArrayList(b.parents);
+    while (unaccounted.size() > 0) {
+      HierarchicalChunk c = unaccounted.get(0);
+      unaccounted.remove(0);
+      if (c.level >= blocks.size()) {
+        blocks.add(new BlockStore(tolerance));
+        rhombs.add(new RhombStore(tolerance));
+      }
+      if (c.subchunks != null) {
+        boolean addme = false;
+        for (HierarchicalChunk subch: (ArrayList<HierarchicalChunk>)c.subchunks)
+          if (topChunks.contains(subch)) {
+            topChunks.remove(subch);
+            addme = true;
+          }
+        if (addme) topChunks.add(c);
+      }
+      if (c.superchunks != null) {
+        // TODO here, we could be faster if we maintained stores of all chunks, parallel to 
+        // the store of blocks; and we stop climbing any time we run into an already-known
+        // chunk.
+        unaccounted.addAll(c.superchunks);
+      } else {
+        if (!topChunks.contains(c)) {
+          // We're at the top of the hierarchy we've been climbing, but not in topChunks. New top chunk.
+          topChunks.add(c);
+        }
+      }
+    }
   }
   
   void register(Block b) {addBlock(b);}
@@ -1145,8 +1189,9 @@ class Block {
   ArrayList<Rhomb> sides;
   ArrayList<HierarchicalChunk> parents;
   Point6D center;
-  int value;
+  private int value;
   int nextValue;
+  boolean hasair;
 
   public Block(Point6D p) {
     axes = new ArrayList<Integer>();
@@ -1165,6 +1210,15 @@ class Block {
   
   public Block(float a, float b, float c, float d, float e, float f) {
     this(new Point6D(a,b,c,d,e,f));
+  }
+  
+  public int getValue() {return value;}
+  
+  public void setValue(int v) {
+    value = v;
+    for (HierarchicalChunk p: parents) {
+      p.state.changed(this);
+    }
   }
   
 }

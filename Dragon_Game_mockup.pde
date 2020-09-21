@@ -202,16 +202,69 @@ void render() {
   //noFill();
   //beginShape();
   //vertex(0,0,0);
-
+  
+  // TODO to_check should be a chunkStore
+  ArrayList<HierarchicalChunk> to_check = new ArrayList<HierarchicalChunk>();
+  // TODO to_draw needs to be a hierarchical BlockStore. BlockStore, because in some grids there will
+  // be overlapping chunks so blocks may be added more than once. Hierarchical, because we are rendering
+  // in blocks of various sizes.
+  ArrayList<Block> to_draw = new ArrayList<Block>();
+  //System.out.println(main_lattice.topChunks.size());
+  for (HierarchicalChunk c: main_lattice.topChunks) {
+    to_check.add(c);
+  }
+  while (to_check.size() > 0) {
+    HierarchicalChunk c = to_check.get(0);
+    to_check.remove(0);
+    // Requesting the blocks on c's own level won't trigger
+    // a lot of generation, but enough to decide how to render.
+    BlockStore chunk_blocks = c.get_blocks(c.level);
+    // Newly generated blocks need to be registered
+    for (Block b: chunk_blocks) if (!main_lattice.blocks.get(c.level).contains(b)) main_lattice.addBlock(b);
+    // Although the blocks hold the actual properties, chunks hold
+    // summary properties
+    // We don't need to examine any further a chunk which contains nothing
+    if (c.state.air) continue;
+    // If the chunk is both totally solid, and totally surrounded by solid, we don't need
+    // to render it either, as indicated by this flag
+    if (c.state.solid) continue;
+    // We also want to ignore chunks that are entirely off-camera.
+    // TODO Checking this is highly redundant; if all a chunk's blocks are on-camera,
+    // we should stop checking this for its subblocks. Also, corners are what get
+    // checked (at least currently), so each corner is being checked three times per block.
+    boolean offcamera = true;
+    // We use c.blocks instead of chunk_blocks to always check the chunk-scale blocks.
+    for (Block b: c.blocks) for (Rhomb s: b.sides) offcamera = offcamera && !onCamera(s);
+    if (offcamera) continue;
+    if (c.subchunks == null || c.subchunks.size() == 0) {
+      to_draw.addAll(chunk_blocks.list);
+    } else {
+      to_check.addAll(c.subchunks);
+    }
+  }
+  //TODO Need a concept of "these faces are adjacent, don't draw the smaller one" for when a small
+  // face is lying on a larger one.
+  //TODO Want to remember even for individual faces whether they need rendered. Actually what would be nice and fast
+  // is if chunks would at some fairly small level serve up a list of every rhombus which needs to be rendered; checking
+  // through every face in a chunk is a lot. Come to think of it, that's the appropriate level where "greedy meshing" should
+  // take place. Each level of chunk stores up an optimized mesh aggregated from its subchunks. When a fairly large chunk gets
+  // out of range and un-loads, any subchunks still loaded would still remember their mesh, which reduces recalculation.
+  // Potential drawbacks: highly redundant, so more memory use; and when a block is placed or destroyed, the change has to
+  // be made and meshes recalculated at every level.
+  if (to_draw.size() == 0) {
+    System.out.println("just a line to set a breakpoint at"); //<>//
+  }
   ArrayList<Rhomb> pointedAt = new ArrayList<Rhomb>();
   BlockStore trigger_generation = new BlockStore(0.0001);
-  for (Block block : (Iterable<Block>)(main_lattice.blocks)) {
+  for (Block block : to_draw) {
     if (block.value > 0) {
+      boolean blockhasair = false;
       for (Rhomb face : block.sides) {
         boolean hasair = true;
         if (face.parents.size() == 2) {
           if (face.parents.get(0).value > 0 && face.parents.get(1).value > 0) {
-            hasair = false;
+            if (to_draw.contains(face.parents.get(0)) && to_draw.contains(face.parents.get(1)))
+              hasair = false;
           }
         } else {
           // We could generate more voxels here
@@ -221,6 +274,7 @@ void render() {
           }
         }
         if (hasair) {
+          blockhasair = true;
           // We know this block isn't air and any neighbor is,
           // so we aren't rendering twice here
           if (cameraPoint(face)) {
@@ -236,6 +290,24 @@ void render() {
           vertex(face.corner3.location_3D.x, face.corner3.location_3D.y, face.corner3.location_3D.z);
           endShape(CLOSE);
         }
+      }
+      if (!blockhasair) {
+        // Block has no air, yet it passed through as needing rendered
+        block.hasair = false;
+        for (HierarchicalChunk c: block.parents) {
+          boolean solid = true;
+          for (Block child: c.get_blocks(c.level)) if (child.hasair) solid = false;
+          c.state.solid = solid;
+          if (c.superchunks != null) for (HierarchicalChunk grandparent: (ArrayList<HierarchicalChunk>)c.superchunks) grandparent.state.changed(c);
+        }
+      } else {block.hasair = true;}
+    } else {
+      // Air block, yet it passed through as needing rendered.
+      for (HierarchicalChunk c: block.parents) {
+        boolean air = true;
+        for (Block child: c.get_blocks(c.level)) if (child.value != 0) air = false;
+        c.state.air = air;
+        if (c.superchunks != null) for (HierarchicalChunk grandparent: (ArrayList<HierarchicalChunk>)c.superchunks) grandparent.state.changed(c);
       }
     }
   }
@@ -258,8 +330,8 @@ void render() {
         empty = closest.parents.get(0);
       }
       if (clicked) {
-        if (mouseButton == LEFT) empty.value += ceil(random(0, 10));
-        if (mouseButton == RIGHT) block.value = 0;
+        if (mouseButton == LEFT) empty.setValue(empty.value += ceil(random(0, 10)));
+        if (mouseButton == RIGHT) block.setValue(0);
         clicked = false;
       }
       stroke(255);
@@ -282,11 +354,18 @@ void render() {
       endShape(CLOSE);
     } else {
       // Came up against non-generated grid. Make more if it's not too distant.
-      if (closestDist < 10) {
+      if (closestDist < 100) {
         class registry implements InstantiationCallback<Block> { public void register(Block b) {
           if (!main_lattice.blocks.contains(b)) main_lattice.addBlock(b);
         }}
-        block.parents.get(0).get_neighbors(new registry());
+        ArrayList<HierarchicalChunk> newchunks = block.parents.get(0).get_neighbors(new registry());
+        if (closestDist < 10) {
+          // Make sure the blocks generated are 0th-level
+          BlockStore bottomblocks = new BlockStore(0.25);
+          for (HierarchicalChunk p: newchunks) 
+          for (Block bb: p.get_blocks(0)) 
+          bottomblocks.add(bb);
+        }
       }
       stroke(255, 255, 0);
       fill(255-(255-block.value*25)*0.8, 255-(255-block.value*10)*0.8, 255-block.value*25*0.8);
@@ -311,14 +390,10 @@ void render() {
   // slower than generating in just what the crosshair points at. I need to focus on generating
   // just stuff that shows; not triggering overlapping generation requests at once; and using the
   // chunk structure to guide prioritization.
-  /*float distance = 10;
-  for (Block b: trigger_generation) {
-    float current_distance = b.sides.get(0).center_3D.copy().sub(cam.position).dot(cam.getForward());
-    if (current_distance < distance) {
-      b.parents.get(0).get_neighbors(new registry());
-      distance = current_distance/3;
-    }
-  }*/
+  if (trigger_generation.size() > 0) {
+  Block b = trigger_generation.list.get(floor(random(0,trigger_generation.size())));
+  //b.parents.get(0).get_neighbors(new registry());
+  }
 }
 
 // TODO This repeats calculations which are in cameraPoint. One strategy
@@ -335,7 +410,7 @@ boolean onCamera(Rhomb face) {
   float c3f = cam.forward.dot(c3);
   float c4f = cam.forward.dot(c4);
   // Don't want to do any more multiplication unless we have to
-  if (c1f > 0 && c2f > 0 && c3f > 0 && c4f > 0) {
+  if (c1f > 0 || c2f > 0 || c3f > 0 || c4f > 0) {
     return true;
   }
   return false;
@@ -1029,6 +1104,90 @@ interface InstantiationCallback<T> {
   void register(T t);
 }
 
+// State summaries ought to flow up the following sort of hierarchy.
+// The leaf nodes are faces, where StateSummary tracks whether the
+// face needs to be rendered. Face-information gets summarized by
+// each block, and block-information gets summarized by chunks.
+// From there, it all goes up the chunk hierarchy.
+// Technically, though, block information flows down to faces
+// too; a block gets changed, then all its faces, and then the
+// information flows up the hierarchy.
+// It would be nice if the same StateSummary object could be 
+// present for each level, using some interface to treat them
+// the same; but I don't think things are quite that clean.
+class StateSummary {
+  HierarchicalChunk chunk;
+  boolean solid;
+  boolean air;
+  StateSummary(HierarchicalChunk chunk, boolean solid, boolean air) {
+    this.chunk = chunk;
+    this.solid = solid;
+    this.air = air;
+  }
+  
+  void changed(Block b) {
+    boolean update_parent = false;
+    if (solid && b.value == 0) {
+      update_parent = true;
+      solid = false;
+    } else if (air && b.value > 0) {
+      update_parent = true;
+      air = false;
+    } else if (b.value > 0) {
+      // TODO A block just became solid.
+      // Gotta check if every block in the chunk is now
+      // surrounded by solid.
+      // TODO Probably a good idea to maintain a count, so
+      // we just note when number of blocks needing rendering
+      // falls to zero rather than checking them all each time
+    } else if (b.value == 0) {
+      // TODO Block just became air; gotta check if they're all
+      // air now
+    }
+    // TODO Also, if a block becomes air we may need to notify neighbors
+    // that they need to render now
+    
+    if (update_parent) {
+      if (chunk.superchunks != null && chunk.superchunks.size() > 0) {
+        for (HierarchicalChunk c: (ArrayList<HierarchicalChunk>)chunk.superchunks) c.state.changed(chunk);
+      }
+    }
+  }
+  
+  void changed(HierarchicalChunk c) {
+    boolean update_parent = false;
+    if (solid && !c.state.solid) {
+      update_parent = true;
+      solid = false;
+    } else if (air && !c.state.air) {
+      update_parent = true;
+      air = false;
+    }
+    // TODO checks for "solid" or "air" becoming true
+    
+    if (update_parent) {
+      if (chunk.superchunks != null && chunk.superchunks.size() > 0) {
+        for (HierarchicalChunk hc: (ArrayList<HierarchicalChunk>)chunk.superchunks) hc.state.changed(chunk);
+      }
+    }
+  }
+  
+}
+
+// Attempted guide to where any new functionality should be added:
+// The distinctions between HiererchicalChunks and blocks stem from the possibility that
+// HierarchicalChunks aren't necessarily drawable. For example, chunks could be 6D hypercubes;
+// each 6D hypercube would have eight 3-faces which could potentially be made of different
+// materials and be drawn in (though only some of them would actually cross the world-plane).
+// Blocks on any one level are required to be nonoverlapping and extend everywhere. Chunks are
+// required to have a hierarchical correspondence across levels which allows them to be generated;
+// any one chunk can generate its subchunks and superchunks, and also knows enough to generate its
+// blocks. The generation-enabling structure of chunks makes them the right place to store 
+// decisions about world structure, such as 'this chunk will contain a cave system' or 'this is a
+// mountain'. However, things get a little messy when a chunk has more than one superchunk.
+// ChunkTypes need to come in to coordinate potentially conflicting decisions; meaning things
+// like having a cave system or not need to become a matter of ChunkType.
+
 // TODO Add some tests which try and enforce the overall logic here.
 //      - I can't make known_types static so every instance needs to
 //        point to the same single ArrayList.
@@ -1044,13 +1203,18 @@ interface InstantiationCallback<T> {
 //        concept of enclosure should still be 3D; so this is a test that would need to be written at
 //        various subclass levels. Could still force any subclasses to create such a test.
 
-abstract class HierarchicalChunk<T extends HierarchicalChunkType> {
+abstract class HierarchicalChunk<C extends HierarchicalChunk, T extends HierarchicalChunkType> {
   int level;
   T type;
   ArrayList<T> known_types;
   BlockStore blocks;
-  ArrayList<HierarchicalChunk> subchunks;
-  ArrayList<HierarchicalChunk> superchunks;
+  ArrayList<C> subchunks;
+  ArrayList<C> superchunks;
+  
+  // state is only guaranteed initialized once constituent blocks are
+  // initialized; yet it's a chunk-level property, not block-level, because
+  // it needs to be hierarchical.
+  StateSummary state;
 
   // Straightforwardly returns any chunks contained in this one, instantiating
   // any not yet instantiated.
@@ -1088,6 +1252,10 @@ abstract class HierarchicalChunk<T extends HierarchicalChunkType> {
   // what I should do is just always ask for neighbors on a chunk of the
   // appropriate scale - replace "side or vertex" with sub-chunks.
   abstract ArrayList<? extends HierarchicalChunk> get_neighbors(InstantiationCallback<Block> i);
+  
+  // Returns a sufficient set of blocks to cover the chunk, without using any
+  // blocks above the maxlevel.
+  abstract BlockStore get_blocks(int maxlevel);
 }
 
 abstract class HierarchicalChunkType<C extends HierarchicalChunk> {
@@ -1136,13 +1304,14 @@ abstract class PositionedHierarchicalChunkType<C extends HierarchicalChunk> exte
   HierarchicalChunkType type;
 }
 
+
 // HierarchicalChunk Subclass Checklist:
 //   Make the core subclass, XChunk; extend HierarchicalChunk<XChunkType>
 //   Make the type class XChunkType; extend HierarchicalChunkType<XChunk>
 //   Make the known_types list which gets handed to each XChunk instance in their constructor
 //   Make the inner class, InnerPositionedXChunk
 
-abstract class HierarchicalChunk3D<C extends HierarchicalChunkType> extends HierarchicalChunk<C> {
+abstract class HierarchicalChunk3D<C extends HierarchicalChunk, T extends HierarchicalChunkType> extends HierarchicalChunk<C,T> {
   /* 3D chunks have a literal 3D containment relationship with their
    * constituent blocks and sub-chunks. 
    */
@@ -1158,11 +1327,12 @@ abstract class HierarchicalChunk6D extends HierarchicalChunk {
 
 ArrayList<CubeChunkType> known_cube_types = new ArrayList<CubeChunkType>();
 
-class CubeChunk extends HierarchicalChunk3D<CubeChunkType> {
-  ArrayList<CubeChunk> subchunks;
-  ArrayList<CubeChunk> superchunks;
-  ArrayList<CubeChunkType> known_types;
+class CubeChunk extends HierarchicalChunk3D<CubeChunk, CubeChunkType> {
+  //ArrayList<CubeChunkType> known_types;
 
+  // Going to see what it's like to include terrain generation variables...
+  int elevation;
+  int blockvalue;
 
   public CubeChunk(PVector position, int h_level) {
     level = h_level;
@@ -1173,6 +1343,16 @@ class CubeChunk extends HierarchicalChunk3D<CubeChunkType> {
       known_types.add(new CubeChunkType());
     }
     type = known_types.get(0);
+    this.state = new StateSummary(this,false,false);
+    
+    elevation = -1;
+    blockvalue = 1;
+  }
+  
+  public CubeChunk(PVector position, int h_level, int elevation, int blockvalue) {
+    this(position, h_level);
+    this.elevation = elevation;
+    this.blockvalue = blockvalue;
   }
 
   public ArrayList<CubeChunk> get_subchunks() {
@@ -1189,6 +1369,9 @@ class CubeChunk extends HierarchicalChunk3D<CubeChunkType> {
         new_subchunk.superchunks = new ArrayList<CubeChunk>();
         new_subchunk.superchunks.add(this);
         subchunks.add(new_subchunk);
+      }
+      for (CubeChunk sc: subchunks) {
+        state.changed(sc);
       }
     }
     return subchunks;
@@ -1219,7 +1402,7 @@ class CubeChunk extends HierarchicalChunk3D<CubeChunkType> {
           break;
         }
       }
-      assert (superchunk.subchunks.contains(this)): "Failed to place chunk in its superchunk"; //<>//
+      assert (superchunk.subchunks.contains(this)): "Failed to place chunk in its superchunk";
     }
     return superchunks;
   }
@@ -1257,7 +1440,7 @@ class CubeChunk extends HierarchicalChunk3D<CubeChunkType> {
     ArrayList<CubeChunk> adjacent = checkAdjacent(siblings);
     for (CubeChunk a: adjacent) neighbors.add(a);
 
-    if (neighbors.size() != 6) { //<>//
+    if (neighbors.size() != 6) {
       // Now we do a recursive search upwards into superchunks. Don't want this to instantiate too much
       // more than it needs to. However, we also don't want to be too stingy, or else we'll just end up
       // doing these searches a lot more. Also... we could literally just instantiate any missing neighbors,
@@ -1319,7 +1502,7 @@ class CubeChunk extends HierarchicalChunk3D<CubeChunkType> {
   ArrayList<CubeChunk> checkAdjacent(ArrayList<CubeChunk> siblings) {
     // Given a list of chunks (assumed to be of the same level as us), returns those which
     // are orthogonally adjacent to us.
-    long scale = Math.round(Math.pow(5.0, (double)(level))); //<>//
+    long scale = Math.round(Math.pow(5.0, (double)(level)));
     ArrayList<CubeChunk> neighbors = new ArrayList<CubeChunk>();
 
     for (CubeChunk s : siblings) {
@@ -1348,27 +1531,35 @@ class CubeChunk extends HierarchicalChunk3D<CubeChunkType> {
   // TODO For a cubic lattice, I can keep subchunks in an array and provide methods for obtaining the chunk
   // at particular coordinates. Do that and make the get_neighbors function use it.
   
-  // This method can cause all subchunks to be instantiated! Should not be called on higher-level chunks.
   BlockStore get_blocks() {
-    if (blocks == null) {
-      blocks = new BlockStore(0.25);// Pretty sure this huge tolerance is good here
-      if (level > 0) {
+    return get_blocks(level);
+  }
+  
+  // This method can cause all subchunks to be instantiated! Should not be called on higher-level
+  // chunks without sufficiently high maxlevel.
+  BlockStore get_blocks(int maxlevel) {
+      if (level > maxlevel) {
+        BlockStore blocks_to_return = new BlockStore(0.25);
         ArrayList<CubeChunk> subchunks = get_subchunks();
         for (CubeChunk c: subchunks) {
-          BlockStore subchunk_blocks = c.get_blocks();
+          BlockStore subchunk_blocks = c.get_blocks(maxlevel);
           for (Block b: subchunk_blocks) {
             // TODO is there some optimization that can be done adding many blocks at once?
-            blocks.add(b);
+            blocks_to_return.add(b);
           }
         }
+        return blocks_to_return;
       } else {
-        // At level zero we contain one block of our own shape.
-        Block us_as_block = new Block(pos.x+0.5,pos.y+0.5,pos.z+0.5, 0, 0, 0);
+      if (blocks == null) {
+      blocks = new BlockStore(0.25);// Pretty sure this huge tolerance is good here
+        //we contain one block of our own shape.
+        long scale = Math.round(Math.pow(5.0, (double)(level)));
+        Block us_as_block = new Block(pos.x+0.5*scale,pos.y+0.5*scale,pos.z+0.5*scale, 0, 0, 0);
         for (int addin=0; addin<=1; addin++) for (int offset=0;offset<3;offset++) {
-          float[] a = {addin,0,0};
+          float[] a = {addin*scale,0,0};
           float[] addin_point = {a[(0+offset)%3],a[(1+offset)%3],a[(2+offset)%3]};
-          float[] x = {0,1,0};
-          float[] y = {0,0,1};
+          float[] x = {0,scale,0};
+          float[] y = {0,0,scale};
           float[] dim1 = {x[(0+offset)%3],x[(1+offset)%3],x[(2+offset)%3]};
           float[] dim2 = {y[(0+offset)%3],y[(1+offset)%3],y[(2+offset)%3]};
           Rhomb new_side = new Rhomb(new Vertex(pos.x + addin_point[0],pos.y + addin_point[1],pos.z + addin_point[2]),
@@ -1385,10 +1576,11 @@ class CubeChunk extends HierarchicalChunk3D<CubeChunkType> {
         us_as_block.parents = new ArrayList<HierarchicalChunk>();
         us_as_block.parents.add(this);
         blocks.add(us_as_block);
+        state.changed(us_as_block);
       }
+      return blocks;
     }
     
-    return blocks;
   }
 }
 
