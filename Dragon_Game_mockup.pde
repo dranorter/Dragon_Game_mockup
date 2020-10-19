@@ -1613,6 +1613,72 @@ class CubeChunkType extends HierarchicalChunkType<CubeChunk> {
   }
 }
 
+// HierarchicalChunk Subclass Checklist:
+//   Make the known_types list which gets handed to each XChunk instance in their constructor
+//   Make the inner class, InnerPositionedXChunk
+
+ArrayList<HierarchicalChunkType> known_rhombdodec_types = new ArrayList<HierarchicalChunkType>();
+
+class RhombDodecChunk extends HierarchicalChunk3D<RhombDodecChunk, RhombDodecChunkType> {
+  public RhombDodecChunk(PVector position, int level) {
+    this.level = level;
+    pos = position;
+    known_types = known_rhombdodec_types;
+    if (known_types.size() == 0) {
+      // Set up known_types
+      known_types.add(new RhombDodecChunkType());
+    }
+    type = known_types.get(0);
+    this.state = new StateSummary(this,false,false);
+  }
+  
+  ArrayList<RhombDodecChunk> get_superchunks() {
+    return superchunks;
+  }
+  
+  ArrayList<RhombDodecChunk> get_subchunks() {
+    return subchunks;
+  }
+  
+  BlockStore get_blocks() {
+    return blocks;
+  }
+  
+  BlockStore get_blocks(int levelToRetrieve) {
+    return blocks;
+  }
+  
+  ArrayList<RhombDodecChunk> get_neighbors(InstantiationCallback<Block> block_registry) {
+    return null;
+  }
+}
+
+class RhombDodecChunkType extends HierarchicalChunkType<RhombDodecChunk> {
+  class PositionedRhombDodecChunkType extends InnerPositionedHierarchicalChunkType {
+    public PositionedRhombDodecChunkType(RhombDodecChunkType h) {
+      h.super();
+    }
+  }
+
+  public RhombDodecChunkType() {
+    subchunks = new ArrayList<InnerPositionedHierarchicalChunkType>();
+    // There's only one chunk type in a cubic lattice. We'll do 5x5x5 chunks
+    for (int i = 0; i < 5; i++) for (int j = 0; j < 5; j++) for (int k = 0; k < 5; k++) {
+      PositionedRhombDodecChunkType subchunk = new PositionedRhombDodecChunkType(this);
+      subchunk.pos = new Point6D(i, j, k, 0, 0, 0);
+      subchunks.add(subchunk);
+    }
+  }
+
+  boolean isMyType(RhombDodecChunk c) {
+    return true;
+  }
+
+  boolean sameSubchunkLayout(RhombDodecChunk c) {
+    return true;
+  }
+}
+
 //class DanzerChunk extends HierarchicalChunk3D {
 //  
 //}

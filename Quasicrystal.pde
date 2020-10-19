@@ -1223,6 +1223,37 @@ class Block {
   
 }
 
+class RhombicDodecahedron extends Block {
+  public RhombicDodecahedron(PVector p, int scale) {
+    super(new Point6D(p.x,p.y,p.z,0,0,0));
+    Vertex bottom = new Vertex(p.x,p.y,p.z-scale,0,0,0);
+    Vertex top = new Vertex(p.x,p.y,p.z+scale,0,0,0);
+    Vertex left = new Vertex(p.x-scale,p.y,p.z,0,0,0);
+    Vertex right = new Vertex(p.x+scale,p.y,p.z,0,0,0);
+    Vertex front = new Vertex(p.x,p.y+scale,p.z,0,0,0);
+    Vertex back = new Vertex(p.x,p.y-scale,p.z,0,0,0);
+    Vertex blb = new Vertex(p.x-scale/2.0,p.y-scale/2.0,p.z-scale/2.0,0,0,0);
+    Vertex blf = new Vertex(p.x-scale/2.0,p.y+scale/2.0,p.z-scale/2.0,0,0,0);
+    Vertex brb = new Vertex(p.x+scale/2.0,p.y-scale/2.0,p.z-scale/2.0,0,0,0);
+    Vertex brf = new Vertex(p.x+scale/2.0,p.y+scale/2.0,p.z-scale/2.0,0,0,0);
+    Vertex tlb = new Vertex(p.x-scale/2.0,p.y-scale/2.0,p.z+scale/2.0,0,0,0);
+    Vertex tlf = new Vertex(p.x-scale/2.0,p.y+scale/2.0,p.z+scale/2.0,0,0,0);
+    Vertex trb = new Vertex(p.x+scale/2.0,p.y-scale/2.0,p.z+scale/2.0,0,0,0);
+    Vertex trf = new Vertex(p.x+scale/2.0,p.y+scale/2.0,p.z+scale/2.0,0,0,0);
+    
+    sides.add(new Rhomb(bottom,blf,brf,front));
+    sides.add(new Rhomb(bottom,brb,blb,back));
+    sides.add(new Rhomb(bottom,brb,brf,right));
+    sides.add(new Rhomb(bottom,blf,blb,left));
+    sides.add(new Rhomb(top,trf,tlf,front));
+    sides.add(new Rhomb(top,tlb,trb,back));
+    sides.add(new Rhomb(top,trb,trf,right));
+    sides.add(new Rhomb(top,tlf,tlb,left));
+    
+    for (Rhomb r: sides) r.parents.add(this);
+  }
+}
+
 public class Point6D {
   public float[] point = {0, 0, 0, 0, 0, 0};
 
